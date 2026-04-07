@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Globe, Monitor, Moon, Sun, Check } from "lucide-react";
+import { X, Globe, Monitor, Moon, Sun, Check, Lock, Smartphone } from "lucide-react";
 import { useApp } from "@/lib/translations";
 
 interface SettingsPanelProps {
@@ -10,11 +10,12 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
-  const { t, waPreference, setWaPreference, theme, setTheme, lang, setLang, isTransitioning } = useApp();
+  const { t, waPreference, setWaPreference, theme, setTheme, lang, setLang, isTransitioning, isPro, setIsPro } = useApp();
   const [globeRotation, setGlobeRotation] = useState(0);
   const [globeScale, setGlobeScale] = useState(1);
   const [labelTransition, setLabelTransition] = useState<"idle" | "out" | "in">("idle");
   const [displayedLang, setDisplayedLang] = useState(lang);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Sync displayed language after transition
   useEffect(() => {
@@ -97,13 +98,23 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
                   isActive={waPreference === "web"}
                   onClick={() => setWaPreference("web")}
                 />
-                <OptionCard
-                  icon={<Monitor className="h-5 w-5" />}
-                  label={t.desktop}
-                  description={t.opensApp}
-                  isActive={waPreference === "desktop"}
-                  onClick={() => setWaPreference("desktop")}
-                />
+                {isPro ? (
+                  <OptionCard
+                    icon={<Smartphone className="h-5 w-5" />}
+                    label={t.desktop}
+                    description={t.opensApp}
+                    isActive={waPreference === "desktop"}
+                    onClick={() => setWaPreference("desktop")}
+                  />
+                ) : (
+                  <LockedOptionCard
+                    icon={<Smartphone className="h-5 w-5" />}
+                    label={t.desktop}
+                    description={t.opensApp}
+                    proLabel={t.proFeature}
+                    onClick={() => setShowUpgradeModal(true)}
+                  />
+                )}
               </div>
             </section>
 
@@ -164,6 +175,20 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        onUpgrade={() => {
+          setIsPro(true);
+          setShowUpgradeModal(false);
+        }}
+        title={t.upgradeTitle}
+        description={t.upgradeDescription}
+        upgradeLabel={t.upgradeToPro}
+        laterLabel={t.maybeLater}
+      />
     </>
   );
 }
@@ -275,5 +300,110 @@ function LanguageCard({ code, label, isActive, onClick, disabled, labelState }: 
         {label}
       </span>
     </button>
+  );
+}
+
+interface LockedOptionCardProps {
+  icon: React.ReactNode;
+  label: string;
+  description?: string;
+  proLabel: string;
+  onClick: () => void;
+}
+
+function LockedOptionCard({ icon, label, description, proLabel, onClick }: LockedOptionCardProps) {
+  return (
+    <button
+      onClick={onClick}
+      className="relative flex flex-col items-center gap-2 rounded-xl border border-border/60 bg-muted/30 p-4 text-center cursor-not-allowed transition-all duration-200 hover:opacity-90"
+    >
+      {/* Lock icon in top-right corner */}
+      <div className="absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted">
+        <Lock className="h-3 w-3 text-muted-foreground" />
+      </div>
+      
+      {/* Pro label */}
+      <div className="absolute top-2 start-2">
+        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground bg-muted/80 px-1.5 py-0.5 rounded">
+          {proLabel}
+        </span>
+      </div>
+      
+      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted/50 text-muted-foreground/70 mt-2">
+        {icon}
+      </div>
+      <span className="text-sm font-medium text-muted-foreground/80">
+        {label}
+      </span>
+      {description && (
+        <span className="text-xs text-muted-foreground/60">{description}</span>
+      )}
+    </button>
+  );
+}
+
+interface UpgradeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onUpgrade: () => void;
+  title: string;
+  description: string;
+  upgradeLabel: string;
+  laterLabel: string;
+}
+
+function UpgradeModal({ isOpen, onClose, onUpgrade, title, description, upgradeLabel, laterLabel }: UpgradeModalProps) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-[60] transition-all duration-200 ${
+          isOpen 
+            ? "opacity-100 bg-background/70 backdrop-blur-sm" 
+            : "opacity-0 pointer-events-none"
+        }`}
+        onClick={onClose}
+      />
+      
+      {/* Modal */}
+      <div
+        className={`fixed top-1/2 left-1/2 z-[70] w-full max-w-[300px] -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${
+          isOpen
+            ? "opacity-100 scale-100"
+            : "opacity-0 scale-95 pointer-events-none"
+        }`}
+      >
+        <div className="rounded-2xl border border-border/50 bg-card p-6 shadow-2xl">
+          {/* Lock icon header */}
+          <div className="mb-4 flex justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Lock className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+          
+          {/* Content */}
+          <div className="mb-6 text-center">
+            <h3 className="mb-2 text-lg font-semibold text-foreground">{title}</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
+          </div>
+          
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={onUpgrade}
+              className="w-full rounded-xl bg-primary py-3 text-sm font-medium text-primary-foreground transition-all duration-200 hover:bg-primary/90 hover:-translate-y-[1px] active:translate-y-0"
+            >
+              {upgradeLabel}
+            </button>
+            <button
+              onClick={onClose}
+              className="w-full rounded-xl bg-muted py-3 text-sm font-medium text-muted-foreground transition-all duration-200 hover:bg-muted/80"
+            >
+              {laterLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

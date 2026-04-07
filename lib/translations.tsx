@@ -38,6 +38,11 @@ const translations = {
     memberAdded: "Member added successfully",
     memberDeleted: "Member deleted",
     numberExists: "Number already exists",
+    proFeature: "Pro feature",
+    upgradeTitle: "WhatsApp App",
+    upgradeDescription: "Open WhatsApp directly on your device. Available on the Pro plan.",
+    upgradeToPro: "Upgrade to Pro",
+    maybeLater: "Maybe later",
   },
   ar: {
     title: "GymConnect",
@@ -70,6 +75,11 @@ const translations = {
     memberAdded: "تمت إضافة العضو بنجاح",
     memberDeleted: "تم حذف العضو",
     numberExists: "الرقم موجود مسبقاً",
+    proFeature: "ميزة Pro",
+    upgradeTitle: "تطبيق واتساب",
+    upgradeDescription: "افتح واتساب مباشرة على جهازك. متوفر في خطة Pro.",
+    upgradeToPro: "الترقية إلى Pro",
+    maybeLater: "ربما لاحقاً",
   },
 };
 
@@ -83,6 +93,8 @@ interface AppContextType {
   setTheme: (theme: Theme) => void;
   waPreference: WAPreference;
   setWaPreference: (pref: WAPreference) => void;
+  isPro: boolean;
+  setIsPro: (isPro: boolean) => void;
   t: typeof translations.en;
   isTransitioning: boolean;
   transitionPhase: TransitionPhase;
@@ -95,6 +107,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>("en");
   const [theme, setThemeState] = useState<Theme>("dark");
   const [waPreference, setWaPreferenceState] = useState<WAPreference>("web");
+  const [isPro, setIsProState] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionPhase, setTransitionPhase] = useState<TransitionPhase>("idle");
@@ -104,10 +117,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const savedLang = localStorage.getItem("lang_preference") as Language | null;
     const savedTheme = localStorage.getItem("theme_preference") as Theme | null;
     const savedWa = localStorage.getItem("wa_preference") as WAPreference | null;
+    const savedPro = localStorage.getItem("is_pro") === "true";
 
     if (savedLang) setLangState(savedLang);
     if (savedTheme) setThemeState(savedTheme);
     if (savedWa) setWaPreferenceState(savedWa);
+    setIsProState(savedPro);
 
     setIsLoaded(true);
   }, []);
@@ -170,6 +185,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("wa_preference", pref);
   };
 
+  const setIsPro = (value: boolean) => {
+    setIsProState(value);
+    localStorage.setItem("is_pro", value.toString());
+  };
+
   const t = translations[lang];
 
   if (!isLoaded) {
@@ -223,7 +243,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ lang, setLang, theme, setTheme, waPreference, setWaPreference, t, isTransitioning, transitionPhase, transitionDirection }}>
+    <AppContext.Provider value={{ lang, setLang, theme, setTheme, waPreference, setWaPreference, isPro, setIsPro, t, isTransitioning, transitionPhase, transitionDirection }}>
       <div style={getTransitionStyles()}>
         {children}
       </div>
