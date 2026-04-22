@@ -6,6 +6,10 @@ export type Language = "en" | "ar";
 export type Theme = "dark" | "light";
 export type WAPreference = "web" | "desktop";
 
+const isLanguage = (value: string | null): value is Language => value === "en" || value === "ar";
+const isTheme = (value: string | null): value is Theme => value === "dark" || value === "light";
+const isWAPreference = (value: string | null): value is WAPreference => value === "web" || value === "desktop";
+
 const translations = {
   en: {
     title: "GymConnect",
@@ -120,14 +124,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transitionDirection, setTransitionDirection] = useState<TransitionDirection>(null);
 
   useEffect(() => {
-    const savedLang = localStorage.getItem("lang_preference") as Language | null;
-    const savedTheme = localStorage.getItem("theme_preference") as Theme | null;
-    const savedWa = localStorage.getItem("wa_preference") as WAPreference | null;
+    const savedLang = localStorage.getItem("lang_preference");
+    const savedTheme = localStorage.getItem("theme_preference");
+    const savedWa = localStorage.getItem("wa_preference");
     const savedPro = localStorage.getItem("is_pro") === "true";
 
-    if (savedLang) setLangState(savedLang);
-    if (savedTheme) setThemeState(savedTheme);
-    if (savedWa) setWaPreferenceState(savedWa);
+    if (isLanguage(savedLang)) setLangState(savedLang);
+    if (isTheme(savedTheme)) setThemeState(savedTheme);
+    if (isWAPreference(savedWa)) setWaPreferenceState(savedWa);
     setIsProState(savedPro);
 
     setIsLoaded(true);
