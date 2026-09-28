@@ -13,7 +13,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useApp, type WAPreference } from "@/lib/translations";
-import { formatExpiry } from "@/lib/membership";
 import type { Member } from "@/app/page";
 
 interface BroadcastPanelProps {
@@ -21,30 +20,13 @@ interface BroadcastPanelProps {
   onClose: () => void;
   members: Member[];
   waPreference: WAPreference;
+  sentIds: Set<string>;
+  onMarkSent: (id: string) => void;
+  onResetSent: () => void;
 }
 
 type Filter = "notSent" | "sent";
 type Media = { url: string; type: "image" | "video"; name: string };
-
-const SENT_KEY = "promo_sent_ids";
-
-function loadSent(): Set<string> {
-  try {
-    const raw = localStorage.getItem(SENT_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistSent(ids: Set<string>) {
-  try {
-    localStorage.setItem(SENT_KEY, JSON.stringify([...ids]));
-  } catch {
-    /* storage unavailable — keep in memory only */
-  }
-}
 
 function initials(name: string) {
   return name
@@ -59,23 +41,29 @@ function prettyPhone(p: string) {
   return `+${p.slice(0, 3)} ${p.slice(3, 5)} ${p.slice(5, 8)} ${p.slice(8)}`;
 }
 
-export function BroadcastPanel({ isOpen, onClose, members, waPreference }: BroadcastPanelProps) {
+export function BroadcastPanel({
+  isOpen,
+  onClose,
+  members,
+  waPreference,
+  sentIds,
+  onMarkSent,
+  onResetSent,
+}: BroadcastPanelProps) {
   const { t } = useApp();
   const [message, setMessage] = useState("");
   const [media, setMedia] = useState<Media | null>(null);
   const [filter, setFilter] = useState<Filter>("notSent");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [broadcasting, setBroadcasting] = useState(false);
   const [queue, setQueue] = useState<Member[]>([]);
   const [qi, setQi] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  // Load the "already sent" set and reset transient state each time the panel opens.
+  // Reset transient state each time the panel opens.
   useEffect(() => {
     if (isOpen) {
-      setSentIds(loadSent());
       setBroadcasting(false);
       setQi(0);
       setSentCount(0);
@@ -115,21 +103,6 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
     });
   };
 
-  const markSent = (id: string) => {
-    setSentIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      persistSent(next);
-      return next;
-    });
-  };
-
-  const resetSent = () => {
-    const empty = new Set<string>();
-    setSentIds(empty);
-    persistSent(empty);
-  };
-
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -165,7 +138,7 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
         ? `https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`
         : `whatsapp://send?phone=${m.phone}&text=${text}`;
     window.open(url, "_blank");
-    markSent(m.id);
+    onMarkSent(m.id);
     setSentCount((c) => c + 1);
     setQi((i) => i + 1);
   };
@@ -303,7 +276,7 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
               ))}
               {sentCountTotal > 0 && (
                 <button
-                  onClick={resetSent}
+                  onClick={onResetSent}
                   title={t.resetSent}
                   className="ms-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
@@ -352,7 +325,6 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
                         <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {prettyPhone(m.phone)}
-                          {m.expiry ? ` · ${formatExpiry(m.expiry)}` : ""}
                         </span>
                       </span>
                       {isSent && (

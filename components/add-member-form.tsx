@@ -5,14 +5,13 @@ import { Plus, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/translations";
 
 interface AddMemberFormProps {
-  onAddMember: (name: string, phone: string, expiry?: string) => void;
+  onAddMember: (name: string, phone: string) => void;
 }
 
 export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
   const { t } = useApp();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
-  const [expiry, setExpiry] = useState("");
   const [isAdding, setIsAdding] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -21,10 +20,9 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
     setIsAdding(true);
     await new Promise((resolve) => setTimeout(resolve, 500));
-    onAddMember(name.trim(), phone.trim(), expiry || undefined);
+    onAddMember(name.trim(), phone.trim());
     setPhone("");
     setName("");
-    setExpiry("");
     setIsAdding(false);
   };
 
@@ -57,19 +55,6 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t.namePlaceholder}
-            className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="expiry" className="mb-1.5 block text-xs font-medium text-muted-foreground">
-            {t.expiryLabel} <span className="opacity-70">· {t.expiryOptional}</span>
-          </label>
-          <input
-            id="expiry"
-            type="date"
-            value={expiry}
-            onChange={(e) => setExpiry(e.target.value)}
             className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>

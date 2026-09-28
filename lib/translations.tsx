@@ -38,13 +38,6 @@ const translations = {
     memberAdded: "Member added successfully",
     memberDeleted: "Member deleted",
     numberExists: "Number already exists",
-    // Expiry
-    expiryLabel: "Membership expiry",
-    expiryOptional: "Optional",
-    expired: "Expired",
-    expiringSoon: "Expiring soon",
-    active: "Active",
-    noExpiry: "No expiry set",
     // Broadcast
     broadcast: "Broadcast",
     broadcastSub: "Message many members at once",
@@ -112,13 +105,6 @@ const translations = {
     memberAdded: "تمت إضافة العضو بنجاح",
     memberDeleted: "تم حذف العضو",
     numberExists: "الرقم موجود مسبقاً",
-    // Expiry
-    expiryLabel: "تاريخ انتهاء العضوية",
-    expiryOptional: "اختياري",
-    expired: "منتهية",
-    expiringSoon: "تنتهي قريباً",
-    active: "سارية",
-    noExpiry: "بدون تاريخ انتهاء",
     // Broadcast
     broadcast: "إرسال جماعي",
     broadcastSub: "أرسل رسالة لعدة أعضاء دفعة واحدة",

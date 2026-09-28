@@ -8,11 +8,12 @@ import type { Member } from "@/app/page";
 
 interface MembersListProps {
   members: Member[];
+  sentIds: Set<string>;
   onDeleteRequest: (member: Member) => void;
   onWhatsAppClick: (phone: string) => void;
 }
 
-export function MembersList({ members, onDeleteRequest, onWhatsAppClick }: MembersListProps) {
+export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick }: MembersListProps) {
   const { t } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -62,6 +63,7 @@ export function MembersList({ members, onDeleteRequest, onWhatsAppClick }: Membe
             <MemberCard
               key={member.id}
               member={member}
+              sent={sentIds.has(member.id)}
               onDelete={() => onDeleteRequest(member)}
               onWhatsAppClick={() => onWhatsAppClick(member.phone)}
             />

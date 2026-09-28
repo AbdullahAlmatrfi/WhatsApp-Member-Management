@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Settings2, Send } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
@@ -15,15 +15,15 @@ export interface Member {
   id: string;
   name: string;
   phone: string;
-  /** ISO date "yyyy-mm-dd" of when the membership expires. Optional. */
-  expiry?: string;
 }
 
 const initialMembers: Member[] = [
-  { id: "1", name: "Mohammed Al-Rashid", phone: "966501234567", expiry: "2026-09-16" },
-  { id: "2", name: "Abdullah Al-Saud", phone: "966559876543", expiry: "2026-10-02" },
-  { id: "3", name: "Khalid Al-Fahad", phone: "966541112233", expiry: "2026-11-20" },
+  { id: "1", name: "Mohammed Al-Rashid", phone: "966501234567" },
+  { id: "2", name: "Abdullah Al-Saud", phone: "966559876543" },
+  { id: "3", name: "Khalid Al-Fahad", phone: "966541112233" },
 ];
+
+const SENT_KEY = "promo_sent_ids";
 
 export default function Home() {
   const { t, waPreference } = useApp();
@@ -33,8 +33,42 @@ export default function Home() {
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
+  // Members who have already been sent the current promotion (persisted per browser).
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
 
-  const handleAddMember = (name: string, phone: string, expiry?: string) => {
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SENT_KEY);
+      if (raw) setSentIds(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  const persistSent = (ids: Set<string>) => {
+    try {
+      localStorage.setItem(SENT_KEY, JSON.stringify([...ids]));
+    } catch {
+      /* storage unavailable */
+    }
+  };
+
+  const markSent = (id: string) => {
+    setSentIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      persistSent(next);
+      return next;
+    });
+  };
+
+  const resetSent = () => {
+    const empty = new Set<string>();
+    setSentIds(empty);
+    persistSent(empty);
+  };
+
+  const handleAddMember = (name: string, phone: string) => {
     const fullPhone = phone.startsWith("966") ? phone : `966${phone}`;
     const exists = members.some((m) => m.phone === fullPhone);
 
@@ -49,7 +83,6 @@ export default function Home() {
       id: Date.now().toString(),
       name,
       phone: fullPhone,
-      expiry: expiry || undefined,
     };
     setMembers((prev) => [newMember, ...prev]);
     setToastMessage(t.memberAdded);
@@ -126,6 +159,7 @@ export default function Home() {
         <AddMemberForm onAddMember={handleAddMember} />
         <MembersList
           members={members}
+          sentIds={sentIds}
           onDeleteRequest={handleDeleteRequest}
           onWhatsAppClick={handleWhatsAppClick}
         />
@@ -144,6 +178,9 @@ export default function Home() {
         onClose={() => setShowBroadcast(false)}
         members={members}
         waPreference={waPreference}
+        sentIds={sentIds}
+        onMarkSent={markSent}
+        onResetSent={resetSent}
       />
     </main>
   );
