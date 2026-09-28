@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   X,
   Send,
@@ -13,7 +13,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useApp, type WAPreference } from "@/lib/translations";
-import { formatExpiry } from "@/lib/membership";
 import type { Member } from "@/app/page";
 
 interface BroadcastPanelProps {
@@ -21,30 +20,13 @@ interface BroadcastPanelProps {
   onClose: () => void;
   members: Member[];
   waPreference: WAPreference;
+  sentIds: Set<string>;
+  onMarkSent: (id: string) => void;
+  onResetSent: () => void;
 }
 
 type Filter = "notSent" | "sent";
-type Media = { url: string; type: "image" | "video"; name: string };
-
-const SENT_KEY = "promo_sent_ids";
-
-function loadSent(): Set<string> {
-  try {
-    const raw = localStorage.getItem(SENT_KEY);
-    if (!raw) return new Set();
-    return new Set(JSON.parse(raw) as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-function persistSent(ids: Set<string>) {
-  try {
-    localStorage.setItem(SENT_KEY, JSON.stringify([...ids]));
-  } catch {
-    /* storage unavailable — keep in memory only */
-  }
-}
+type Media = { url: string; type: "image" | "video"; name: string; file: File };
 
 function initials(name: string) {
   return name
@@ -59,23 +41,28 @@ function prettyPhone(p: string) {
   return `+${p.slice(0, 3)} ${p.slice(3, 5)} ${p.slice(5, 8)} ${p.slice(8)}`;
 }
 
-export function BroadcastPanel({ isOpen, onClose, members, waPreference }: BroadcastPanelProps) {
+export function BroadcastPanel({
+  isOpen,
+  onClose,
+  members,
+  waPreference,
+  sentIds,
+  onMarkSent,
+  onResetSent,
+}: BroadcastPanelProps) {
   const { t } = useApp();
   const [message, setMessage] = useState("");
   const [media, setMedia] = useState<Media | null>(null);
   const [filter, setFilter] = useState<Filter>("notSent");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
   const [broadcasting, setBroadcasting] = useState(false);
   const [queue, setQueue] = useState<Member[]>([]);
   const [qi, setQi] = useState(0);
   const [sentCount, setSentCount] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  // Load the "already sent" set and reset transient state each time the panel opens.
+  // Reset transient state each time the panel opens.
   useEffect(() => {
     if (isOpen) {
-      setSentIds(loadSent());
       setBroadcasting(false);
       setQi(0);
       setSentCount(0);
@@ -115,21 +102,6 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
     });
   };
 
-  const markSent = (id: string) => {
-    setSentIds((prev) => {
-      const next = new Set(prev);
-      next.add(id);
-      persistSent(next);
-      return next;
-    });
-  };
-
-  const resetSent = () => {
-    const empty = new Set<string>();
-    setSentIds(empty);
-    persistSent(empty);
-  };
-
   const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -138,13 +110,36 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
       url: URL.createObjectURL(f),
       type: f.type.startsWith("video") ? "video" : "image",
       name: f.name,
+      file: f,
     });
   };
 
   const removeMedia = () => {
     if (media?.url) URL.revokeObjectURL(media.url);
     setMedia(null);
-    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const canShareMedia = () => {
+    if (!media) return false;
+    try {
+      return !!(navigator.canShare && navigator.canShare({ files: [media.file] }));
+    } catch {
+      return false;
+    }
+  };
+
+  const shareMedia = (m: Member) => {
+    if (!media) return;
+    navigator
+      .share({ files: [media.file], text: personalMsg(m), title: "GymConnect" })
+      .then(() => {
+        onMarkSent(m.id);
+        setSentCount((c) => c + 1);
+        setQi((i) => i + 1);
+      })
+      .catch(() => {
+        /* cancelled or unsupported — stay on this member */
+      });
   };
 
   const personalMsg = (m: Member) => message.replace(/\{name\}/g, m.name.split(" ")[0]);
@@ -165,7 +160,7 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
         ? `https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`
         : `whatsapp://send?phone=${m.phone}&text=${text}`;
     window.open(url, "_blank");
-    markSent(m.id);
+    onMarkSent(m.id);
     setSentCount((c) => c + 1);
     setQi((i) => i + 1);
   };
@@ -227,17 +222,19 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
               {message.length} {t.characters} · {t.nameHint}
             </p>
 
-            <input ref={fileRef} type="file" accept="image/*,video/*" hidden onChange={onPickFile} />
             {!media ? (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className="mt-4 flex w-full flex-col items-center gap-1 rounded-xl border border-dashed border-border p-4 text-muted-foreground transition-all duration-200 hover:border-primary hover:text-primary"
-              >
+              <div className="relative mt-4 flex w-full flex-col items-center gap-1 rounded-xl border border-dashed border-border p-4 text-muted-foreground transition-all duration-200 hover:border-primary hover:text-primary">
                 <Upload className="h-5 w-5" />
                 <span className="text-sm font-medium">{t.attachMedia}</span>
                 <span className="text-xs">{t.attachHint}</span>
-              </button>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={onPickFile}
+                  aria-label={t.attachMedia}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </div>
             ) : (
               <div className="mt-4 overflow-hidden rounded-xl border border-border">
                 {media.type === "video" ? (
@@ -303,7 +300,7 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
               ))}
               {sentCountTotal > 0 && (
                 <button
-                  onClick={resetSent}
+                  onClick={onResetSent}
                   title={t.resetSent}
                   className="ms-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
@@ -352,7 +349,6 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
                         <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
                         <span className="block truncate text-xs text-muted-foreground">
                           {prettyPhone(m.phone)}
-                          {m.expiry ? ` · ${formatExpiry(m.expiry)}` : ""}
                         </span>
                       </span>
                       {isSent && (
@@ -420,29 +416,55 @@ export function BroadcastPanel({ isOpen, onClose, members, waPreference }: Broad
 
             <div className="mb-4 whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-secondary/40 p-3 text-sm text-foreground">
               {personalMsg(current)}
-              {media && (
+              {media && !canShareMedia() && (
                 <span className="mt-2 block text-[11px] text-muted-foreground">
                   <Paperclip className="me-1 inline h-3 w-3" />
-                  {media.type === "video" ? t.video : t.photo} {t.willAttachManually}
+                  {media.type === "video" ? t.video : t.photo} {t.cantAttachHere}
                 </span>
               )}
             </div>
 
-            <div className="flex gap-2">
-              <button
-                onClick={skip}
-                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-              >
-                {t.skip}
-              </button>
-              <button
-                onClick={() => openChat(current)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-              >
-                <Send className="h-4 w-4" />
-                {t.openAndSend}
-              </button>
-            </div>
+            {media && canShareMedia() ? (
+              <>
+                <div className="flex gap-2">
+                  <button
+                    onClick={skip}
+                    className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    {t.skip}
+                  </button>
+                  <button
+                    onClick={() => shareMedia(current)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+                  >
+                    <Send className="h-4 w-4" />
+                    {t.shareToWhatsApp}
+                  </button>
+                </div>
+                <button
+                  onClick={() => openChat(current)}
+                  className="mt-2.5 w-full text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  {t.orTextOnly}
+                </button>
+              </>
+            ) : (
+              <div className="flex gap-2">
+                <button
+                  onClick={skip}
+                  className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  {t.skip}
+                </button>
+                <button
+                  onClick={() => openChat(current)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+                >
+                  <Send className="h-4 w-4" />
+                  {t.openAndSend}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

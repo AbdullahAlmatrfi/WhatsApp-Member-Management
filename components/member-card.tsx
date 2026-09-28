@@ -3,19 +3,13 @@
 import { Trash2 } from "lucide-react";
 import type { Member } from "@/app/page";
 import { useApp } from "@/lib/translations";
-import { membershipStatus, formatExpiry } from "@/lib/membership";
 
 interface MemberCardProps {
   member: Member;
+  sent: boolean;
   onDelete: () => void;
   onWhatsAppClick: () => void;
 }
-
-const statusStyles: Record<string, string> = {
-  expired: "bg-destructive/15 text-destructive",
-  soon: "bg-amber-500/15 text-amber-600 dark:text-amber-400",
-  active: "bg-primary/15 text-primary",
-};
 
 function WhatsAppIcon({ className }: { className?: string }) {
   return (
@@ -29,7 +23,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-export function MemberCard({ member, onDelete, onWhatsAppClick }: MemberCardProps) {
+export function MemberCard({ member, sent, onDelete, onWhatsAppClick }: MemberCardProps) {
   const { t } = useApp();
   const initials = member.name
     .split(" ")
@@ -40,10 +34,6 @@ export function MemberCard({ member, onDelete, onWhatsAppClick }: MemberCardProp
 
   const formattedPhone = `+${member.phone.slice(0, 3)} ${member.phone.slice(3, 5)} ${member.phone.slice(5, 8)} ${member.phone.slice(8)}`;
 
-  const status = membershipStatus(member.expiry);
-  const statusLabel =
-    status === "expired" ? t.expired : status === "soon" ? t.expiringSoon : status === "active" ? t.active : "";
-
   return (
     <div className="group relative flex items-center gap-4 rounded-2xl border border-border/50 bg-secondary/50 p-4 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5">
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
@@ -53,14 +43,13 @@ export function MemberCard({ member, onDelete, onWhatsAppClick }: MemberCardProp
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-foreground">{member.name}</p>
         <p className="text-sm text-muted-foreground">{formattedPhone}</p>
-        {status && (
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${statusStyles[status]}`}>
-              {statusLabel}
-            </span>
-            <span className="text-[11px] text-muted-foreground">{formatExpiry(member.expiry)}</span>
-          </div>
-        )}
+        <span
+          className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+            sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {sent ? t.sent : t.notSent}
+        </span>
       </div>
 
       <div className="flex items-center gap-2">
