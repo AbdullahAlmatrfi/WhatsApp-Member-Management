@@ -2,24 +2,27 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { Settings2 } from "lucide-react";
+import { Settings2, Send } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
 import { Toast } from "@/components/toast";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { SettingsPanel } from "@/components/settings-panel";
+import { BroadcastPanel } from "@/components/broadcast-panel";
 import { useApp } from "@/lib/translations";
 
 export interface Member {
   id: string;
   name: string;
   phone: string;
+  /** ISO date "yyyy-mm-dd" of when the membership expires. Optional. */
+  expiry?: string;
 }
 
 const initialMembers: Member[] = [
-  { id: "1", name: "Mohammed Al-Rashid", phone: "966501234567" },
-  { id: "2", name: "Abdullah Al-Saud", phone: "966559876543" },
-  { id: "3", name: "Khalid Al-Fahad", phone: "966541112233" },
+  { id: "1", name: "Mohammed Al-Rashid", phone: "966501234567", expiry: "2026-09-16" },
+  { id: "2", name: "Abdullah Al-Saud", phone: "966559876543", expiry: "2026-10-02" },
+  { id: "3", name: "Khalid Al-Fahad", phone: "966541112233", expiry: "2026-11-20" },
 ];
 
 export default function Home() {
@@ -29,11 +32,12 @@ export default function Home() {
   const [toastMessage, setToastMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBroadcast, setShowBroadcast] = useState(false);
 
-  const handleAddMember = (name: string, phone: string) => {
+  const handleAddMember = (name: string, phone: string, expiry?: string) => {
     const fullPhone = phone.startsWith("966") ? phone : `966${phone}`;
     const exists = members.some((m) => m.phone === fullPhone);
-    
+
     if (exists) {
       setToastMessage(t.numberExists);
       setShowToast(true);
@@ -45,6 +49,7 @@ export default function Home() {
       id: Date.now().toString(),
       name,
       phone: fullPhone,
+      expiry: expiry || undefined,
     };
     setMembers((prev) => [newMember, ...prev]);
     setToastMessage(t.memberAdded);
@@ -99,13 +104,23 @@ export default function Home() {
               </p>
             </div>
           </div>
-          <button
-            onClick={() => setShowSettings(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"
-            aria-label={t.settings}
-          >
-            <Settings2 className="h-6 w-6" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowBroadcast(true)}
+              className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
+              aria-label={t.broadcast}
+            >
+              <Send className="h-5 w-5" />
+              <span className="hidden sm:inline">{t.broadcast}</span>
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"
+              aria-label={t.settings}
+            >
+              <Settings2 className="h-6 w-6" />
+            </button>
+          </div>
         </header>
 
         <AddMemberForm onAddMember={handleAddMember} />
@@ -124,6 +139,12 @@ export default function Home() {
         onCancel={handleCancelDelete}
       />
       <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
+      <BroadcastPanel
+        isOpen={showBroadcast}
+        onClose={() => setShowBroadcast(false)}
+        members={members}
+        waPreference={waPreference}
+      />
     </main>
   );
 }
