@@ -10,7 +10,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'GymConnect - WhatsApp Member Manager',
   description: 'Manage your gym members and connect via WhatsApp instantly',
-  generator: 'v0.app',
   icons: {
     icon: [
       {
