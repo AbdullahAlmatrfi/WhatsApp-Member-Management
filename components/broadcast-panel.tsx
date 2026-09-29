@@ -1,17 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  X,
-  Send,
-  Upload,
-  Info,
-  Check,
-  MessageSquare,
-  Users,
-  Paperclip,
-  RotateCcw,
-} from "lucide-react";
+import { X, Send, Info, Check, MessageSquare, Users, RotateCcw } from "lucide-react";
 import { useApp, type WAPreference } from "@/lib/translations";
 import type { Member } from "@/app/page";
 
@@ -26,7 +16,6 @@ interface BroadcastPanelProps {
 }
 
 type Filter = "notSent" | "sent";
-type Media = { url: string; type: "image" | "video"; name: string; file: File };
 
 function initials(name: string) {
   return name
@@ -52,7 +41,6 @@ export function BroadcastPanel({
 }: BroadcastPanelProps) {
   const { t } = useApp();
   const [message, setMessage] = useState("");
-  const [media, setMedia] = useState<Media | null>(null);
   const [filter, setFilter] = useState<Filter>("notSent");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [broadcasting, setBroadcasting] = useState(false);
@@ -68,13 +56,6 @@ export function BroadcastPanel({
       setSentCount(0);
     }
   }, [isOpen]);
-
-  // Clean up object URLs.
-  useEffect(() => {
-    return () => {
-      if (media?.url) URL.revokeObjectURL(media.url);
-    };
-  }, [media]);
 
   if (!isOpen) return null;
 
@@ -100,46 +81,6 @@ export function BroadcastPanel({
       else shown.forEach((m) => next.add(m.id));
       return next;
     });
-  };
-
-  const onPickFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (media?.url) URL.revokeObjectURL(media.url);
-    setMedia({
-      url: URL.createObjectURL(f),
-      type: f.type.startsWith("video") ? "video" : "image",
-      name: f.name,
-      file: f,
-    });
-  };
-
-  const removeMedia = () => {
-    if (media?.url) URL.revokeObjectURL(media.url);
-    setMedia(null);
-  };
-
-  const canShareMedia = () => {
-    if (!media) return false;
-    try {
-      return !!(navigator.canShare && navigator.canShare({ files: [media.file] }));
-    } catch {
-      return false;
-    }
-  };
-
-  const shareMedia = (m: Member) => {
-    if (!media) return;
-    navigator
-      .share({ files: [media.file], text: personalMsg(m), title: "GymConnect" })
-      .then(() => {
-        onMarkSent(m.id);
-        setSentCount((c) => c + 1);
-        setQi((i) => i + 1);
-      })
-      .catch(() => {
-        /* cancelled or unsupported — stay on this member */
-      });
   };
 
   const personalMsg = (m: Member) => message.replace(/\{name\}/g, m.name.split(" ")[0]);
@@ -222,42 +163,10 @@ export function BroadcastPanel({
               {message.length} {t.characters} · {t.nameHint}
             </p>
 
-            {!media ? (
-              <div className="relative mt-4 flex w-full flex-col items-center gap-1 rounded-xl border border-dashed border-border p-4 text-muted-foreground transition-all duration-200 hover:border-primary hover:text-primary">
-                <Upload className="h-5 w-5" />
-                <span className="text-sm font-medium">{t.attachMedia}</span>
-                <span className="text-xs">{t.attachHint}</span>
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={onPickFile}
-                  aria-label={t.attachMedia}
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                />
-              </div>
-            ) : (
-              <div className="mt-4 overflow-hidden rounded-xl border border-border">
-                {media.type === "video" ? (
-                  <video src={media.url} className="max-h-48 w-full object-cover" muted playsInline />
-                ) : (
-                  <img src={media.url} alt="" className="max-h-48 w-full object-cover" />
-                )}
-                <div className="flex items-center gap-2 p-2">
-                  <span className="flex-1 truncate text-xs text-muted-foreground">{media.name}</span>
-                  <button
-                    type="button"
-                    onClick={removeMedia}
-                    className="rounded-lg bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20"
-                  >
-                    {t.removeMedia}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="mt-3 flex gap-2 rounded-xl bg-amber-500/10 p-3 text-xs leading-relaxed text-amber-700 dark:text-amber-400">
-              <Info className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t.guidedNote}</span>
+            {/* Media is a planned future feature — text only for now. */}
+            <div className="mt-4 flex gap-2 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-muted-foreground">
+              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <span>{t.mediaComingSoon}</span>
             </div>
           </section>
 
@@ -347,9 +256,7 @@ export function BroadcastPanel({
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">
-                          {prettyPhone(m.phone)}
-                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">{prettyPhone(m.phone)}</span>
                       </span>
                       {isSent && (
                         <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -404,67 +311,25 @@ export function BroadcastPanel({
               </div>
             </div>
 
-            {media && (
-              <div className="mb-2 overflow-hidden rounded-xl border border-border">
-                {media.type === "video" ? (
-                  <video src={media.url} className="max-h-36 w-full object-cover" muted playsInline />
-                ) : (
-                  <img src={media.url} alt="" className="max-h-36 w-full object-cover" />
-                )}
-              </div>
-            )}
-
             <div className="mb-4 whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-secondary/40 p-3 text-sm text-foreground">
               {personalMsg(current)}
-              {media && !canShareMedia() && (
-                <span className="mt-2 block text-[11px] text-muted-foreground">
-                  <Paperclip className="me-1 inline h-3 w-3" />
-                  {media.type === "video" ? t.video : t.photo} {t.cantAttachHere}
-                </span>
-              )}
             </div>
 
-            {media && canShareMedia() ? (
-              <>
-                <div className="flex gap-2">
-                  <button
-                    onClick={skip}
-                    className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                  >
-                    {t.skip}
-                  </button>
-                  <button
-                    onClick={() => shareMedia(current)}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-                  >
-                    <Send className="h-4 w-4" />
-                    {t.shareToWhatsApp}
-                  </button>
-                </div>
-                <button
-                  onClick={() => openChat(current)}
-                  className="mt-2.5 w-full text-center text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {t.orTextOnly}
-                </button>
-              </>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={skip}
-                  className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                >
-                  {t.skip}
-                </button>
-                <button
-                  onClick={() => openChat(current)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-                >
-                  <Send className="h-4 w-4" />
-                  {t.openAndSend}
-                </button>
-              </div>
-            )}
+            <div className="flex gap-2">
+              <button
+                onClick={skip}
+                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                {t.skip}
+              </button>
+              <button
+                onClick={() => openChat(current)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+              >
+                <Send className="h-4 w-4" />
+                {t.openAndSend}
+              </button>
+            </div>
           </div>
         </div>
       )}
