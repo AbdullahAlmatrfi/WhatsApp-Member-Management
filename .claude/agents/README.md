@@ -13,6 +13,15 @@ Agents are **deployed onto their work when it's time**, not left idle:
 - Every build → `qa-engineer` + `qa-automation` (test), `security-engineer` (audit), `customer-advocate` (real-user check).
 - Before any release → `black-hat` (authorized red-team: attacks the app on purpose to find holes the defensive audit misses).
 - Before design + testing → `scenario-mapper` (writes down every user journey and edge case, logical and illogical, start to finish, so nothing is missed).
+- Specialists who own a cross-cutting concern:
+  - `accessibility-specialist` — WCAG 2.2 AA: keyboard, screen reader, contrast, reduced motion, RTL a11y.
+  - `whatsapp-specialist` — the WhatsApp channel: handoff mechanics, ban-avoidance, consent, Business-API trade-offs.
+  - `solutions-architect` — the shape of the system: Edge Functions, realtime vs polling, data-model evolution, boundaries.
+  - `finops-guardian` — keeps the app inside the free tier; forecasts when a paid plan is truly needed.
+- Launch & operations (added after the team reviewed its own gaps):
+  - `data-steward` — backup & recovery: the member list must survive a bad delete / free-tier loss. Owns backups, tested restore drills, export/import, RPO/RTO.
+  - `customer-success` — onboarding & support: gets the non-technical owner live, trains reception (EN/AR), owns the "who do I call" runbook.
+  - `release-verifier` — proves the *deployed* system matches the code: live RLS tests, schema run, headers, config-drift; a separate GO/NO-GO so the proof isn't self-graded.
 - Before release → `performance-engineer`, `compliance-officer`, `release-manager` (go/no-go).
 - Around launch → `devops-engineer` (CI/CD), `sre` (monitoring), `technical-writer` (docs), `localization-specialist` (EN/AR), `data-analyst` (insights).
 

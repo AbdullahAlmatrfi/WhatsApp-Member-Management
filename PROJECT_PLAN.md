@@ -31,7 +31,7 @@ A gym member-management web app for reception staff:
 ## 3. The team
 - 👑 **Product Owner:** Abdullah — decides & approves.
 - 🎖️ **Lead:** Claude — plans, builds, runs the specialist agents, reports.
-- 👷 **18 specialist agents** (`.claude/agents/`) — deployed per task; security + QA gate every release.
+- 👷 **A full bench of specialist agents** (`.claude/agents/` — see its README for the roster) — deployed per task; security + QA gate every release. The bench grows as gaps appear: it now includes a red-team (`black-hat`), a `scenario-mapper`, and launch/ops roles (`accessibility-specialist`, `whatsapp-specialist`, `solutions-architect`, `finops-guardian`, `data-steward`, `customer-success`, `release-verifier`).
 
 ---
 
