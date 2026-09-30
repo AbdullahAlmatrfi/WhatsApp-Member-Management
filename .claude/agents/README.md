@@ -3,8 +3,9 @@
 The specialist agents that build, check, and ship GymConnect.
 
 **Chain of command**
-- **Product Owner:** the user (Abdullah) — owns the vision, sets priorities, approves.
-- **Product / Tech Lead:** Claude — assembles the team, deploys specialists onto their work, reviews their reports, and answers to the Product Owner.
+- **Product Owner:** the user (Abdullah) — owns the vision, sets priorities, gives final approval on anything big, irreversible, costly, or member-facing.
+- **PO proxy (`product-owner`):** stands in for Abdullah's day-to-day direction — turns the plan into the Lead's next build orders and makes routine, reversible calls to keep momentum, but escalates every big/irreversible/uncertain decision back to the real Abdullah for a yes/no. Never fabricates his approval.
+- **Product / Tech Lead:** Claude — assembles the team, deploys specialists onto their work, reviews their reports, executes the build, and answers to the Product Owner.
 - **The team:** the agents in this folder — each a veteran master of one craft.
 
 **How the team works**
