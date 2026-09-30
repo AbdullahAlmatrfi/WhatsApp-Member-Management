@@ -165,3 +165,37 @@ LOGIN-15/23/26, ADD-24 (recommend yes), SEARCH-08, BCAST-15/37, SET-14, AUTO-08/
 ---
 
 *Reviewed & consolidated from: Scenario Mapper (v1 solutions) · Black Hat 🛡️ · Backend/Data 🗄️ · Frontend 💻 · Customer Advocate 🙋.*
+
+---
+
+## Part E — Pre-build stress-test corrections (data 💾 · cost 💰 · new-scenario 🔍)
+*Before-build review by `data-steward`, `finops-guardian`, and a scenario "shake" of the fixes themselves. These **amend** Parts A & D.*
+
+### E1 — New go-live BLOCKERS: backup & recovery 💾
+The Wave-3 fixes make deletes smoother but add **no way to get data back**, while v1 ships an hourly whole-table-capable DELETE cron on a free tier with **no PITR/backups**. **The member list is not recoverable today — a hard blocker, above all the UX polish.**
+- **W3-DATA-1 (blocker):** scheduled backup before auto-delete runs in production — a server-only `app/api/backup/route.ts` (uses `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET`-gated), **daily Vercel Cron** → timestamped CSV to a **private Supabase Storage bucket** (survives the row DELETE), 7–14 rolling snapshots, + weekly CSV email to the admin. Plus an in-app **Export CSV** button (RPO≈0 before risky ops). Never push member PII to git.
+- **W3-DATA-2 (blocker):** a restore path (admin `app/api/restore/route.ts`, **upsert-on-phone**) + **one passing restore drill** signed off by `release-verifier`, or launch is NO-GO. Drill: seed → backup → wipe → restore → assert every name+phone matches; note restore resets `created_at` to `now()` (fresh 72h window).
+- **W3-DATA-3:** set **RPO ≤ 24h, RTO ≤ 1h**, and a **PDPL backup-retention number** (fills AUTO-13: "gone from live immediately; from backups within N days").
+- **W3-DATA-4 (guardrails on the fixes):** refetch must **never replace a non-empty list with an errored/empty result**; use `count:"exact"` so a >1000 truncation isn't reconciled as truth; comment + release-test that the members RLS policy stays **role-based** (the 0-row rule is safe only because of that).
+- **CSV import:** restore-grade import is **v1** (the drill needs it); the polished staff-facing bulk-import UI is **v1.5**, reusing `lib/phone.ts`, with an added/skipped/rejected report. Needs a **server-only service-role env var** (coordinate with LOGIN-27's build-fails-on-missing-env).
+
+### E2 — Refetch cost: fits $0, with 3 required tweaks 💰
+Poll fits free tier for one desk (~5–12% of the 5 GB egress); tighten before multi-desk:
+- **Poll at 90s, not 60s**, while visible.
+- **Pause the interval when the tab is hidden** (`document.hidden`); resume with one throttled refetch on focus/visibility.
+- **Never run the X-08 pagination loop inside the poll** — full-scan is initial-load-only; the poll reads a bounded page or just the probe.
+- **Add a fingerprint probe** — a tiny RPC returning `count(*)`, `count(*) filter (where sent)`, `max(created_at)` (~50 B); only run the full `fetchMembers` when it changes. Collapses poll egress to ~600 KB/mo and makes member-count irrelevant (needed because there's no `updated_at`; the sent-count catches a colleague's mark/reset).
+- Keep-alive: **daily Vercel Cron** hitting a route that makes a real Supabase request — fits Hobby's once-daily cron; ~6 days' margin vs the ~7-day pause. Realtime stays a **v2** upgrade.
+- Headroom: 200 members ≈ 5% egress; 1000 ≈ 26%; with the probe, effectively negligible. DB size is never the constraint.
+
+### E3 — The fixes create new holes: 5 spec changes BEFORE building 🔍
+1. **Split the "one 0-row rule" by operation.** Correct for DELETE (gone = success). **UNSAFE for mark-sent** — a blocked update returning 0 rows would falsely mark an un-contacted member "Messaged"; mark-sent on 0 rows must probe role and only succeed if role intact **and** absence confirmed, else don't set sent + route to gate. **Reset = non-optimistic** (await the result), not optimistic-clear.
+2. **Specify refetch concurrency first:** a numeric `writesInFlight` counter (inc/dec around every mutation incl. rollback), a monotonic request-sequence token (drop stale responses), and a `dirty` flag (a refetch landing while writes>0 is discarded + re-run after). A boolean won't survive two concurrent mutations. Don't build the poll before these.
+3. **Verify-on-enter must fail-OPEN:** ~2–3s `AbortSignal.timeout` + `finally` always clears the checking state; on timeout/error **allow the send** (opening a chat is harmless) — never a silent dead button freezing the campaign.
+4. **Probe failure ≠ denial; error ≠ pending:** a probe/role-fetch error keeps the optimistic result + schedules a refetch; only a *positively-returned* pending/no-profile shows the gate. In the login state union, settle role and members **independently** (one rejection mustn't collapse both); a flaky network must never read as "waiting for approval."
+5. **One canonical phone format owned by `lib/phone.ts`:** `handleAddMember` builds the stored phone **through the normalizer** (not `"966"+phone`), dedupes on normalized keys, asserts idempotency (`normalize(normalize(x))===normalize(x)`), and matches existing `966…` rows (ADD-24 expat/E.164 breaks the hard-coded assumption).
+Also: reconcile a same-phone add on **phone presence alone** (not name equality); verify-on-enter auto-skip must be **idempotent per index** (no skip-loop); the reset `ConfirmDialog` and the step modal must be **mutually exclusive** (shared `z-[60]`).
+
+**Net:** Wave 3 grows a **data sub-track** (backup/restore — new go-live blockers), the refetch gets 3 cost tweaks, and the 0-row rule + concurrency + verify + gate + phone-format specs are tightened *before* any code.
+
+*Pre-build stress-test by: `data-steward` 💾 · `finops-guardian` 💰 · `scenario-mapper` 🔍.*
