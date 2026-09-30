@@ -5,7 +5,22 @@ import { Plus, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/translations";
 
 interface AddMemberFormProps {
-  onAddMember: (name: string, phone: string) => void;
+  /** Resolves true only when the member was actually saved. */
+  onAddMember: (name: string, phone: string) => Promise<boolean>;
+}
+
+// Saudi mobile, national format: 9 digits starting with 5 (the app prepends 966).
+const PHONE_PATTERN = /^5\d{8}$/;
+
+// Arabic-Indic (U+0660–0669) and Persian (U+06F0–06F9) digits -> ASCII, then keep digits only.
+function sanitizePhone(value: string): string {
+  return value
+    .replace(/[٠-٩۰-۹]/g, (d) => {
+      const code = d.charCodeAt(0);
+      return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
+    })
+    .replace(/\D/g, "")
+    .slice(0, 9);
 }
 
 export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
@@ -13,17 +28,28 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [phoneError, setPhoneError] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone.trim() || !name.trim()) return;
+    const trimmedName = name.trim();
+    if (isAdding || !phone || !trimmedName) return;
+    if (!PHONE_PATTERN.test(phone)) {
+      setPhoneError(true);
+      return;
+    }
 
     setIsAdding(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    onAddMember(name.trim(), phone.trim());
-    setPhone("");
-    setName("");
-    setIsAdding(false);
+    try {
+      const saved = await onAddMember(trimmedName, phone);
+      // Keep what the user typed unless the save was confirmed.
+      if (saved) {
+        setPhone("");
+        setName("");
+      }
+    } finally {
+      setIsAdding(false);
+    }
   };
 
   return (
@@ -44,10 +70,14 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
             <input
               type="tel"
               value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+              onChange={(e) => {
+                setPhone(sanitizePhone(e.target.value));
+                setPhoneError(false);
+              }}
               placeholder={t.phonePlaceholder}
-              className="h-12 w-full rounded-xl border border-border bg-input ps-16 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-              maxLength={9}
+              aria-invalid={phoneError}
+              aria-describedby={phoneError ? "phone-error" : undefined}
+              className="h-12 w-full rounded-xl border border-border bg-input ps-16 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 aria-invalid:border-destructive"
             />
           </div>
           <input
@@ -55,9 +85,16 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t.namePlaceholder}
+            maxLength={100}
             className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
         </div>
+
+        {phoneError && (
+          <p id="phone-error" role="alert" className="text-sm text-destructive">
+            {t.phoneInvalid}
+          </p>
+        )}
 
         <button
           type="submit"

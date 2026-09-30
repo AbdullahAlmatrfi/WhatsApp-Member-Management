@@ -38,6 +38,7 @@ const translations = {
     memberAdded: "Member added successfully",
     memberDeleted: "Member deleted",
     numberExists: "Number already exists",
+    phoneInvalid: "Enter a valid Saudi mobile number: 9 digits starting with 5",
     // Auth
     loginTitle: "Staff Login",
     loginSub: "Sign in to manage your members",
@@ -122,6 +123,7 @@ const translations = {
     memberAdded: "تمت إضافة العضو بنجاح",
     memberDeleted: "تم حذف العضو",
     numberExists: "الرقم موجود مسبقاً",
+    phoneInvalid: "أدخل رقم جوال سعودي صحيح: 9 أرقام يبدأ بالرقم 5",
     // Auth
     loginTitle: "تسجيل دخول الموظفين",
     loginSub: "سجّل الدخول لإدارة الأعضاء",
@@ -195,6 +197,28 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | null>(null);
 
+const LANGUAGES: readonly Language[] = ["en", "ar"];
+const THEMES: readonly Theme[] = ["dark", "light"];
+const WA_PREFERENCES: readonly WAPreference[] = ["web", "desktop"];
+
+// localStorage can be blocked or hold a tampered value — never let that crash the app.
+function readPref<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const value = localStorage.getItem(key);
+    return allowed.find((a) => a === value) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writePref(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // Storage unavailable (private mode / quota) — the preference just won't persist.
+  }
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Language>("en");
   const [theme, setThemeState] = useState<Theme>("dark");
@@ -205,13 +229,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [transitionDirection, setTransitionDirection] = useState<TransitionDirection>(null);
 
   useEffect(() => {
-    const savedLang = localStorage.getItem("lang_preference") as Language | null;
-    const savedTheme = localStorage.getItem("theme_preference") as Theme | null;
-    const savedWa = localStorage.getItem("wa_preference") as WAPreference | null;
-
-    if (savedLang) setLangState(savedLang);
-    if (savedTheme) setThemeState(savedTheme);
-    if (savedWa) setWaPreferenceState(savedWa);
+    setLangState(readPref("lang_preference", LANGUAGES, "en"));
+    setThemeState(readPref("theme_preference", THEMES, "dark"));
+    setWaPreferenceState(readPref("wa_preference", WA_PREFERENCES, "web"));
 
     setIsLoaded(true);
   }, []);
@@ -245,7 +265,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setTimeout(() => {
         // Switch language and direction at the end of phase 2
         setLangState(newLang);
-        localStorage.setItem("lang_preference", newLang);
+        writePref("lang_preference", newLang);
         document.documentElement.dir = newLang === "ar" ? "rtl" : "ltr";
         document.documentElement.lang = newLang;
         
@@ -266,12 +286,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
-    localStorage.setItem("theme_preference", newTheme);
+    writePref("theme_preference", newTheme);
   };
 
   const setWaPreference = (pref: WAPreference) => {
     setWaPreferenceState(pref);
-    localStorage.setItem("wa_preference", pref);
+    writePref("wa_preference", pref);
   };
 
   const t = translations[lang];
@@ -311,16 +331,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return {
           ...baseStyle,
           opacity: 1,
-          transform: "scale(1) translateX(0)",
-          filter: "blur(0px)",
+          // "none" (not scale(1)/blur(0px)) so the wrapper is not a containing
+          // block for position:fixed overlays once the entrance has settled.
+          transform: "none",
+          filter: "none",
           transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
         };
       default:
         return {
           ...baseStyle,
           opacity: 1,
-          transform: "scale(1) translateX(0)",
-          filter: "blur(0px)",
+          transform: "none",
+          filter: "none",
           transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
         };
     }

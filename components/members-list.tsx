@@ -17,10 +17,9 @@ export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick
   const { t } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
 
+  const query = searchQuery.trim().toLowerCase();
   const filteredMembers = members.filter(
-    (member) =>
-      member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      member.phone.includes(searchQuery)
+    (member) => member.name.toLowerCase().includes(query) || member.phone.includes(query)
   );
 
   return (
