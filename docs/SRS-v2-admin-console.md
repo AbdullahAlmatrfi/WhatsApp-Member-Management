@@ -130,8 +130,7 @@ A new **Admin** section, reachable only by an account whose `profiles.role = 'ad
 |---|---|---|
 | id | uuid PK | `gen_random_uuid()` |
 | author_id | uuid | FK → auth.users; default `auth.uid()` |
-| category | text | optional, CHECK in a small set (PO to confirm) |
-| message | text | NOT NULL, length CHECK (1–2000) |
+| message | text | NOT NULL, length CHECK (1–2000); free text (no category — Q-A2) |
 | status | text | `new` / `read` / `resolved`, default `new` |
 | created_at | timestamptz | default now() |
 RLS: staff **INSERT** own (`author_id = auth.uid()`) + **SELECT** own; admin **SELECT/UPDATE** all.
@@ -157,6 +156,16 @@ RLS: admin SELECT; writes server-side. Indexed on `(type, created_at)`.
 
 **`public.settings`** — reuse v1 table for FR-A6.
 
+### 4.1 Keeping the database small (free-tier safe) — PO concern
+The PO is worried the free Supabase plan will "fill up." It will not, by design:
+- **Space math:** Supabase free tier = **500 MB** of database. One member row (name + phone + a few fields) is ~**100–200 bytes**. 200 members ≈ **~40 KB** — about **0.008%** of the free space. Even 100,000 members ≈ ~20 MB. A gym's member list cannot fill it.
+- **Hard delete frees space:** deleting a member is a real `DELETE` (v1 NFR-11) — the row and its space are gone, not hidden. The **auto-delete cron** removes members after the chosen window (default 3 days), so the `members` table stays tiny permanently.
+- **Analytics never hoard PII:** the analytics/event rows store **only a type + timestamp** (e.g. `member.add`, `broadcast.run`) — **no name or phone**. So a member can be counted for a chart and then auto-deleted; the count survives as a ~30-byte PII-free row. This is exactly the PO's "keep just a single data point" instinct.
+- **Events + logs have their own retention:** `app_events` and `activity_log` are purged on a schedule (e.g. 90 days) so they can never grow without bound.
+- **The real free-tier thing to watch is NOT space — it's the pause:** a free Supabase project **pauses after ~7 days of no activity**, which would make login/list fail until resumed. Mitigation options: a tiny scheduled ping to keep it awake, or upgrade later if the gym goes quiet. (Tracked as v1 Q9.)
+
+**Net:** with hard-delete + auto-delete + PII-free analytics, the database stays small forever on the free plan.
+
 ---
 
 ## 5. Security & Edge Function threat model (summary)
@@ -171,10 +180,12 @@ RLS: admin SELECT; writes server-side. Indexed on `(type, created_at)`.
 ## 6. Out of scope (v2) & open questions for the PO
 **Out of scope:** paid WhatsApp/media, per-staff granular permissions beyond admin/staff/pending, scheduled/automated exports, in-app email sending, multi-gym/multi-tenant.
 
-**Open questions (please decide):**
-- **Q-A1** Create-account: set new accounts as `staff` immediately, or `pending` (admin approves after)? (Recommend `staff` if the admin is the one creating them.)
-- **Q-A2** Feedback categories — fixed list (bug / idea / other) or free text only?
-- **Q-A9** Summary report: is browser "print-to-PDF" fine, or do you need a real generated PDF file?
+**Decided by PO (2026-09-30):**
+- **Q-A1 → staff.** When the admin creates an account, it is active `staff` immediately.
+- **Q-A2 → free text.** Feedback is a general free-text message (no fixed categories); the `category` column is dropped.
+- **Q-A9 → print-to-PDF + CSV.** Data export is client-side **CSV**; the summary is browser **Print → Save as PDF**. No server, $0.
+
+**Still open (please decide):**
 - **Q-A11** Is Revoke (→ pending) enough, so we can skip a separate "deactivate/ban"? (Recommend: yes, skip it.)
 - **Q-A12** Notify you (WhatsApp/email) when new feedback arrives? (Recommend: no, keep it in-app for v2.)
 - **Q-A13/16** Activity log = employee monitoring under PDPL/labor rules → is a staff notice (NFR-A7) enough?
