@@ -14,3 +14,5 @@ next.user-config.*
 node_modules
 .next/
 .DS_Store
+# generated PDFs (source of truth is the .md)
+docs/*.pdf
