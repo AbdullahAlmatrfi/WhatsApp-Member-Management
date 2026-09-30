@@ -3,10 +3,12 @@
 import { Trash2 } from "lucide-react";
 import type { Member } from "@/app/page";
 import { useApp } from "@/lib/translations";
+import { addedTag } from "@/lib/format";
 
 interface MemberCardProps {
   member: Member;
   sent: boolean;
+  retentionHours: number;
   onDelete: () => void;
   onWhatsAppClick: () => void;
 }
@@ -23,8 +25,9 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-export function MemberCard({ member, sent, onDelete, onWhatsAppClick }: MemberCardProps) {
+export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppClick }: MemberCardProps) {
   const { t } = useApp();
+  const tag = addedTag(member.createdAt, retentionHours, t);
   const initials = member.name
     .split(" ")
     .map((n) => n[0])
@@ -43,13 +46,26 @@ export function MemberCard({ member, sent, onDelete, onWhatsAppClick }: MemberCa
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-foreground">{member.name}</p>
         <p className="text-sm text-muted-foreground">{formattedPhone}</p>
-        <span
-          className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
-            sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-          }`}
-        >
-          {sent ? t.sent : t.notSent}
-        </span>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span
+            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+              sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {sent ? t.sent : t.notSent}
+          </span>
+          {tag && (
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                tag.leavingSoon
+                  ? "bg-destructive/10 text-destructive"
+                  : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {tag.leavingSoon ? `${tag.text} · ${t.leavingSoon}` : tag.text}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-2">
