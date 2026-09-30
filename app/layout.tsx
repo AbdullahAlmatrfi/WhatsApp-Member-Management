@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AppProvider } from '@/lib/translations'
+import { AuthProvider } from '@/lib/auth'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -38,7 +39,9 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className="font-sans antialiased">
         <AppProvider>
-          {children}
+          <AuthProvider>
+            {children}
+          </AuthProvider>
         </AppProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
