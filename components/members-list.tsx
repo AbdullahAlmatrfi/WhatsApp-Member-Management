@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Users, Download } from "lucide-react";
 import { MemberCard } from "./member-card";
 import { useApp } from "@/lib/translations";
@@ -24,6 +24,15 @@ export function MembersList({
 }: MembersListProps) {
   const { t } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Reception leaves this open all day, so re-render every minute: the "Added"
+  // labels roll over at Riyadh midnight and "leaving soon" lights up on time.
+  // (addedTag reads `new Date()` on each render — this just triggers the render.)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const query = searchQuery.trim().toLowerCase();
   const filteredMembers = members.filter(

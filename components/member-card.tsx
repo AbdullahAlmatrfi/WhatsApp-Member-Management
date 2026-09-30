@@ -48,21 +48,20 @@ export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppC
         <p className="text-sm text-muted-foreground">{formattedPhone}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span
-            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
+            className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
               sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
             }`}
           >
             {sent ? t.sent : t.notSent}
           </span>
           {tag && (
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                tag.leavingSoon
-                  ? "bg-destructive/10 text-destructive"
-                  : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {tag.leavingSoon ? `${tag.text} · ${t.leavingSoon}` : tag.text}
+            <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+              {tag.text}
+            </span>
+          )}
+          {tag?.leavingSoon && (
+            <span className="inline-block whitespace-nowrap rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+              {t.leavingSoon}
             </span>
           )}
         </div>

@@ -37,8 +37,10 @@ export function formatDateRiyadh(createdAt: string | null | undefined): string {
 }
 
 type AddedStrings = {
+  added: string;
   addedToday: string;
   addedYesterday: string;
+  addedTwoDays: string;
   addedDaysAgo: string;
   leavingSoon: string;
 };
@@ -67,9 +69,10 @@ export function addedTag(
   const leavingSoon = remaining <= Math.min(24, retentionHours / 3);
 
   const dayDiff = Math.max(0, riyadhDayDiff(created, now)); // clamp future/skew to Today
-  let text: string;
-  if (dayDiff === 0) text = t.addedToday;
-  else if (dayDiff === 1) text = t.addedYesterday;
-  else text = t.addedDaysAgo.replace("{n}", String(dayDiff)); // Western digits (house style)
-  return { text, leavingSoon };
+  let when: string;
+  if (dayDiff === 0) when = t.addedToday;
+  else if (dayDiff === 1) when = t.addedYesterday;
+  else if (dayDiff === 2) when = t.addedTwoDays; // Arabic dual (يومين) differs from plural
+  else when = t.addedDaysAgo.replace("{n}", String(dayDiff)); // Western digits (house style)
+  return { text: `${t.added} ${when}`, leavingSoon };
 }

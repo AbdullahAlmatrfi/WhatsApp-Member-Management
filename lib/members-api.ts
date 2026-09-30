@@ -47,7 +47,13 @@ export async function fetchAutoDeleteHours(): Promise<number> {
     .eq("id", 1)
     .single();
   if (error) throw error;
-  return data.auto_delete_hours as number;
+  // Validate + clamp: a bad/hostile value (NaN, 0, negative, or an absurdly
+  // large number) must never silently disable the "leaving soon" cue. Non-finite
+  // or non-positive throws so the caller keeps its safe default; huge values are
+  // capped at 1 year.
+  const h = Number(data.auto_delete_hours);
+  if (!Number.isFinite(h) || h <= 0) throw new Error("invalid auto_delete_hours");
+  return Math.min(h, 8760);
 }
 
 export async function deleteMemberById(id: string): Promise<void> {

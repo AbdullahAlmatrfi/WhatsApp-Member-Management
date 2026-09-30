@@ -40,11 +40,12 @@ const translations = {
     searchLabel: "Search members",
     messageOnWhatsApp: "Message {name} on WhatsApp",
     deleteMemberLabel: "Delete {name}",
-    // "Added" tag (member card)
+    // "Added" tag (member card) — assembled as `${added} ${when}`, e.g. "Added today"
     added: "Added",
-    addedToday: "Today",
-    addedYesterday: "Yesterday",
-    addedDaysAgo: "{n} days",
+    addedToday: "today",
+    addedYesterday: "yesterday",
+    addedTwoDays: "2 days ago",
+    addedDaysAgo: "{n} days ago",
     leavingSoon: "leaving soon",
     // CSV export
     downloadList: "Download list",
@@ -142,11 +143,12 @@ const translations = {
     searchLabel: "البحث في الأعضاء",
     messageOnWhatsApp: "مراسلة {name} على واتساب",
     deleteMemberLabel: "حذف {name}",
-    // "Added" tag (member card)
+    // "Added" tag (member card) — assembled as `${added} ${when}`, e.g. "أُضيف اليوم"
     added: "أُضيف",
     addedToday: "اليوم",
     addedYesterday: "أمس",
-    addedDaysAgo: "{n} أيام",
+    addedTwoDays: "قبل يومين",
+    addedDaysAgo: "قبل {n} أيام",
     leavingSoon: "يُحذف قريباً",
     // CSV export
     downloadList: "تنزيل القائمة",

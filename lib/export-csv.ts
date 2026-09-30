@@ -47,5 +47,7 @@ export function downloadMembersCsv(members: Member[], t: CsvStrings): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  // Defer the revoke: some browsers (older Safari/Firefox) abort the download
+  // if the object URL is revoked synchronously right after click().
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
