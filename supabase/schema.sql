@@ -25,7 +25,8 @@ create table if not exists public.profiles (
 create table if not exists public.settings (
   id                 int primary key default 1,
   auto_delete_hours  int not null default 72,   -- 72h = 3 days (your default)
-  constraint settings_singleton check (id = 1)
+  constraint settings_singleton check (id = 1),
+  constraint settings_hours_nonneg check (auto_delete_hours >= 0)
 );
 insert into public.settings (id, auto_delete_hours)
   values (1, 72) on conflict (id) do nothing;
@@ -43,6 +44,13 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- backfill: give any user who already existed a profile too
+insert into public.profiles (id, role)
+  select id, 'staff' from auth.users on conflict (id) do nothing;
+
+-- lock down the trigger function so only the database can run it
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 -- ---------- ROW LEVEL SECURITY (keeps data private) -----------------
 alter table public.members  enable row level security;
@@ -81,7 +89,12 @@ begin
   end if;
 end; $$;
 
--- run the cleanup every hour (needs the pg_cron extension enabled)
+-- lock down the cleanup function so only the database (pg_cron) can run it
+revoke execute on function public.cleanup_old_members() from public, anon, authenticated;
+
+-- run the cleanup every hour.
+-- NOTE: if the next line errors, first enable pg_cron in the dashboard
+-- (Database -> Extensions -> search "pg_cron" -> enable), then re-run from here.
 create extension if not exists pg_cron;
 select cron.schedule('gymconnect-cleanup', '0 * * * *', $$ select public.cleanup_old_members(); $$);
 
