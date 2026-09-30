@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Settings2, Send, LogOut, Loader2 } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
-import { Toast } from "@/components/toast";
+import { Toast, type ToastVariant } from "@/components/toast";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { SettingsPanel } from "@/components/settings-panel";
 import { BroadcastPanel } from "@/components/broadcast-panel";
@@ -14,6 +14,7 @@ import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 import {
   fetchMembers,
+  getDbErrorCode,
   insertMember,
   deleteMemberById,
   setMemberSent,
@@ -39,22 +40,42 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
 
-  const toast = (msg: string) => {
+  const [toastVariant, setToastVariant] = useState<ToastVariant>("success");
+
+  const userId = session?.user.id;
+  // Tracks the signed-in user so a late DB response / rollback from a previous
+  // session can never write into the next user's list.
+  const userIdRef = useRef<string | undefined>(undefined);
+
+  const toast = (msg: string, variant: ToastVariant = "success") => {
     setToastMessage(msg);
+    setToastVariant(variant);
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
   };
 
-  // Load members from the database once the user is signed in.
+  // Load members when the signed-in user changes (keyed on the user id, not the
+  // session object, so token refresh / tab focus doesn't refetch). Also wipes
+  // member data and overlay state on sign-out so the next user never sees it.
   useEffect(() => {
-    if (!session) return;
+    userIdRef.current = userId;
+    setMembers([]);
+    setDeleteTarget(null);
+    setShowSettings(false);
+    setShowBroadcast(false);
+    if (!userId) {
+      setLoadingMembers(true);
+      return;
+    }
     let active = true;
     setLoadingMembers(true);
     fetchMembers()
       .then((rows) => {
         if (active) setMembers(rows);
       })
-      .catch(() => toast(t.loadFailed))
+      .catch(() => {
+        if (active) toast(t.loadFailed, "error");
+      })
       .finally(() => {
         if (active) setLoadingMembers(false);
       });
@@ -62,41 +83,61 @@ export default function Home() {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session]);
+  }, [userId]);
 
   // "Sent" is a column on each member now (single source of truth).
   const sentIds = new Set(members.filter((m) => m.sent).map((m) => m.id));
 
   const markSent = async (id: string) => {
+    const uid = userIdRef.current;
+    const previous = members.find((m) => m.id === id);
+    if (!previous) return;
+    const previousSent = previous.sent;
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: true } : m)));
     try {
       await setMemberSent(id, true);
     } catch {
-      toast(t.saveFailed);
+      if (userIdRef.current !== uid) return;
+      setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));
+      toast(t.saveFailed, "error");
     }
   };
 
   const resetSent = async () => {
+    const uid = userIdRef.current;
+    const wasSentIds = new Set(sentIds);
     setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
     try {
       await resetAllSent();
     } catch {
-      toast(t.saveFailed);
+      if (userIdRef.current !== uid) return;
+      setMembers((prev) => prev.map((m) => (wasSentIds.has(m.id) ? { ...m, sent: true } : m)));
+      toast(t.saveFailed, "error");
     }
   };
 
-  const handleAddMember = async (name: string, phone: string) => {
-    const fullPhone = phone.startsWith("966") ? phone : `966${phone}`;
+  // Resolves true only when the row was really inserted.
+  const handleAddMember = async (name: string, phone: string): Promise<boolean> => {
+    const uid = userIdRef.current;
+    // Form guarantees `phone` is exactly 9 digits starting with 5 (FR-12).
+    const fullPhone = `966${phone}`;
     if (members.some((m) => m.phone === fullPhone)) {
-      toast(t.numberExists);
-      return;
+      toast(t.numberExists, "error");
+      return false;
     }
     try {
       const created = await insertMember(name, fullPhone);
+      if (userIdRef.current !== uid) return false;
       setMembers((prev) => [created, ...prev]);
       toast(t.memberAdded);
-    } catch {
-      toast(t.saveFailed);
+      return true;
+    } catch (err) {
+      if (userIdRef.current !== uid) return false;
+      const code = getDbErrorCode(err);
+      if (code === "23505") toast(t.numberExists, "error");
+      else if (code === "23514") toast(t.phoneInvalid, "error");
+      else toast(t.saveFailed, "error");
+      return false;
     }
   };
 
@@ -105,20 +146,29 @@ export default function Home() {
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
+    const uid = userIdRef.current;
     const target = deleteTarget;
+    const originalIndex = members.findIndex((m) => m.id === target.id);
     setDeleteTarget(null);
     setMembers((prev) => prev.filter((m) => m.id !== target.id));
     try {
       await deleteMemberById(target.id);
       toast(t.memberDeleted);
     } catch {
-      toast(t.saveFailed);
+      if (userIdRef.current !== uid) return;
+      setMembers((prev) => {
+        if (prev.some((m) => m.id === target.id)) return prev;
+        const next = [...prev];
+        next.splice(originalIndex < 0 ? 0 : Math.min(originalIndex, next.length), 0, target);
+        return next;
+      });
+      toast(t.saveFailed, "error");
     }
   };
 
   const handleWhatsAppClick = (phone: string) => {
     if (waPreference === "web") {
-      window.open(`https://web.whatsapp.com/send?phone=${phone}`, "_blank");
+      window.open(`https://web.whatsapp.com/send?phone=${phone}`, "_blank", "noopener,noreferrer");
     } else {
       window.location.href = `whatsapp://send?phone=${phone}`;
     }
@@ -189,7 +239,7 @@ export default function Home() {
         )}
       </div>
 
-      <Toast show={showToast} message={toastMessage} />
+      <Toast show={showToast} message={toastMessage} variant={toastVariant} />
       <DeleteDialog
         isOpen={deleteTarget !== null}
         memberName={deleteTarget?.name || ""}

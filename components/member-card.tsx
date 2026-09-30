@@ -63,7 +63,7 @@ export function MemberCard({ member, sent, onDelete, onWhatsAppClick }: MemberCa
 
         <button
           onClick={onDelete}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive opacity-0 transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground hover:scale-105 active:scale-95 group-hover:opacity-100 md:opacity-0"
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive opacity-0 transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground hover:scale-105 active:scale-95 group-hover:opacity-100"
           aria-label={`Delete ${member.name}`}
         >
           <Trash2 className="h-5 w-5" />

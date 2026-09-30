@@ -83,7 +83,7 @@ export function BroadcastPanel({
     });
   };
 
-  const personalMsg = (m: Member) => message.replace(/\{name\}/g, m.name.split(" ")[0]);
+  const personalMsg = (m: Member) => message.replace(/\{name\}/g, () => m.name.split(" ")[0]);
 
   const startBroadcast = () => {
     const q = members.filter((m) => selected.has(m.id));
@@ -100,7 +100,7 @@ export function BroadcastPanel({
       waPreference === "web"
         ? `https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`
         : `whatsapp://send?phone=${m.phone}&text=${text}`;
-    window.open(url, "_blank");
+    window.open(url, "_blank", "noopener,noreferrer");
     onMarkSent(m.id);
     setSentCount((c) => c + 1);
     setQi((i) => i + 1);
@@ -114,7 +114,8 @@ export function BroadcastPanel({
     onClose();
   };
 
-  const selectedN = selected.size;
+  // Only ids that still exist (a deleted member can linger in `selected`).
+  const selectedN = members.filter((m) => selected.has(m.id)).length;
   const current = queue[qi];
 
   return (

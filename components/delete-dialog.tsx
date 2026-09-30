@@ -28,9 +28,7 @@ export function DeleteDialog({
       />
 
       <div
-        className={`relative w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl transition-all duration-200 ${
-          isOpen ? "scale-100 opacity-100" : "scale-95 opacity-0"
-        }`}
+        className="relative w-full max-w-sm scale-100 rounded-2xl border border-border bg-card p-6 opacity-100 shadow-2xl transition-all duration-200"
       >
         <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/20">
           <AlertTriangle className="h-6 w-6 text-destructive" />
