@@ -11,6 +11,7 @@ The specialist agents that build, check, and ship GymConnect.
 Agents are **deployed onto their work when it's time**, not left idle:
 - New feature → `business-analyst` (requirements) → `ux-designer` / `ui-designer` (design) → `frontend-engineer` / `backend-engineer` / `database-engineer` (build).
 - Every build → `qa-engineer` + `qa-automation` (test), `security-engineer` (audit), `customer-advocate` (real-user check).
+- Before any release → `black-hat` (authorized red-team: attacks the app on purpose to find holes the defensive audit misses).
 - Before release → `performance-engineer`, `compliance-officer`, `release-manager` (go/no-go).
 - Around launch → `devops-engineer` (CI/CD), `sre` (monitoring), `technical-writer` (docs), `localization-specialist` (EN/AR), `data-analyst` (insights).
 

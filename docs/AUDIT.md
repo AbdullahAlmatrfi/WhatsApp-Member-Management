@@ -13,7 +13,7 @@ Every row points to the SRS requirement it breaks, so "fixed" = "that requiremen
 
 | # | Requirement(s) | Problem | Fix | Status |
 |---|---|---|---|---|
-| B0 | **NFR-3** (CRITICAL, needs live check) | The whole data wall rests on one Supabase dashboard toggle. If email signup is ON, anyone on the internet self-registers → the `handle_new_user` trigger auto-grants a working `staff` account → full read/**delete** of every member's name + phone. | Verify signup is OFF on every environment (`POST /auth/v1/signup` must return "Signups not allowed"). Then change `handle_new_user()` to create a non-privileged `role='pending'` that no `members` policy grants, requiring explicit admin promotion. | 🔧 Open |
+| B0 | **NFR-3** (CRITICAL, needs live check) | The whole data wall rests on Supabase dashboard toggles. **Black Hat found 3 doors, not 1:** (a) email signup, (b) **Anonymous sign-ins** — `signInAnonymously()` mints a real JWT with no email, (c) any OAuth/magic-link provider. Each leads through `handle_new_user` → auto-granted `staff` account → full read/**delete** of every member's name + phone. | Verify **all three** are OFF on every environment (`POST /auth/v1/signup` and an anonymous grant must both be rejected). Then change `handle_new_user()` to create a non-privileged `role='pending'` that no `members` policy grants, requiring explicit admin promotion. | 🔧 Open |
 | B1 | **NFR-22 / F1** | Always-on `transform: scale(1) translateX(0)` **and** `filter: blur(0px)` on the app wrapper make it the containing block for every overlay → dialogs, Broadcast, toast mis-position after scroll. | Set **both** `transform` and `filter` to `none` when idle (SRS confirmed transform alone is not enough). | 🔧 Open |
 | B2 | **NFR-18 / F2** (FR-26, FR-31, FR-33) | Delete, mark-sent and reset-sent update the screen first and never roll back on DB failure → screen and database disagree. | Snapshot state before each optimistic update; restore it (or refetch) in the `catch`. Restore the *previous* sent value, not a hard-coded false. | 🔧 Open |
 | B3 | **FR-16 / F4** (+ NFR-15) | Add form clears the typed name/phone before the save is confirmed; on failure the input is lost. Plus a fake 500 ms delay in the submit path. | Make `handleAddMember` return success; `await` it in the form; clear only on success. Delete the fake delay. | 🔧 Open |
@@ -22,6 +22,7 @@ Every row points to the SRS requirement it breaks, so "fixed" = "that requiremen
 | B6 | **NFR-23/24/25/26/27/28** | Overlays have no dialog role, no Escape-to-close, no focus trap; toast has no `aria-live` and an older toast's timer hides a newer one; the per-member Delete button is invisible on touch/keyboard; inputs have no labels. | The repo already ships Radix `alert-dialog`, `dialog`, `sheet`. Move Delete → `AlertDialog`, Settings → `Sheet`, Broadcast → `Dialog` (gives role, Escape, focus trap, and portals out of the F1 wrapper for free). Fix the toast timer (ref + clearTimeout) and add `aria-live`. Add labels. | 🔧 Open |
 | B7 | **FR-6** (privacy) | `members` state is never cleared on sign-out → the next user can briefly see the previous user's member list (PII across sessions). | Reset `members` + broadcast/settings/delete UI state when the session becomes null. | 🔧 Open |
 | B8 | **NFR-8** | `window.open` calls omit `noopener,noreferrer` (reverse-tabnabbing); no security headers (clickjacking). | Pass `"noopener,noreferrer"`; add `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy` via `headers()`. | 🔧 Open |
+| B9 | **NFR-11, FR-46** (Black Hat H1) | `created_at` is client-writable (blanket `using(true) with check(true)`, no column limit). Any write-capable account can (a) set a member's `created_at` to the future → **immortal record, defeats PDPL erasure**, or (b) backdate every row → the next hourly cron **stealth-purges the whole table** looking like the app's own job. | Scope `UPDATE members` to the `sent` column only (`revoke update … ; grant update(sent) …`) + a `BEFORE UPDATE` trigger pinning `created_at`. This makes Q6/Q11 hardening **required**, not optional. | 🔧 Open |
 
 ---
 
@@ -66,5 +67,6 @@ Every row points to the SRS requirement it breaks, so "fixed" = "that requiremen
 - **QA:** NO-GO — Must FRs failing (B2, B3, B4).
 - **Frontend:** NO-GO — B1, B2, B3, B6 open.
 - **Database:** NO-GO — B4 constraints not in schema.
+- **Black Hat (red team):** NO-GO — 3 signup doors (B0), retention bypass/stealth-purge (B9), deep-link injection via unvalidated phone (B4/M2). Verdict: *"treat every member's name + phone as world-readable and world-deletable until B0 is verified live."*
 
-**When B0–B8 show ✅ and the live RLS/signup tests pass, we deploy.**
+**When B0–B9 show ✅ and the live RLS/signup tests pass, we deploy.**
