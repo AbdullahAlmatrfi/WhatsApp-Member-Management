@@ -44,17 +44,31 @@ A gym member-management web app for reception staff:
 | 4 | Database (members saved) | ✅ Built |
 | 5 | Login (admin-only, no public signup) | ✅ Built |
 | 6 | Auto-delete after 3 days | ✅ Built (in DB) |
-| 7 | **Fix launch bugs** (see audit) | 🔧 In progress |
+| 7 | **Fix launch blockers** (Wave 1: B0–B5,B7,B8,B9) | ✅ Done + re-verified |
+| 7b | Accessibility rebuild (Wave 2: B6) | 🔧 Next |
 | 8 | Bulk delete + "delete all sent" | ⏳ Planned |
-| 9 | Deploy to Vercel | ⏳ After fixes |
+| 9 | Deploy to Vercel | ⏳ After Wave 2 |
+
+---
+
+## 4b. v2 — the Admin Console (a page only the admin can open)
+*Agreed as the next version after v1 ships. Gated on `role='admin'`.*
+| Feature | What it does | Note |
+|---|---|---|
+| A1 · User management | Approve pending sign-ins → staff; (optional) create accounts (email+password) yourself | "Create" needs a small secure server piece (Supabase Edge Function) — the service key must never touch the browser |
+| A2 · Analytics dashboard | Members total, sent vs not-sent, new members over time, broadcasts run, per-staff activity | Some metrics need a small event-logging table |
+| A3 · Feedback inbox | Staff send feedback → admin reads it (read/unread) | New `feedback` table + admin-only read policy |
+| A4 · Reports / export | One-click export of members / a summary as CSV or PDF | "send us the report" |
+| A5 · Activity log | Who added/deleted whom, and when | Accountability / audit trail |
+| A6 · Settings UI | Admin toggles the auto-delete window (7h/24h/2d/3d) | Already tracked as FR-50 |
 
 ---
 
 ## 5. Where we are today
-- Database + login are **built and merged to main**, and reviewed.
-- Supabase project is **live**; signup is **locked**; admin account created.
-- **Not deployed yet** — on purpose. The full review found bugs to fix first.
-- 👉 **Next action:** Lead fixes the **4 must-fix bugs** in `docs/AUDIT.md`, re-checks, then we deploy.
+- Database + login **built, merged, and hardened** (Wave 1). Full review + Black Hat red-team: all 10 launch blockers **closed in code**.
+- Supabase project is **live**; all 3 signup doors **locked** (PO-verified).
+- **Not deployed yet** — on purpose. Remaining: **Wave 2 accessibility**, run the hardened `schema.sql` on the live DB, then a few live smoke tests.
+- 👉 **Next action:** Wave 2 (accessibility), then deploy v1. **Then** build the v2 Admin Console (§4b).
 
 ---
 
@@ -64,6 +78,7 @@ A gym member-management web app for reception staff:
 - Auto-delete default **3 days**; options 7h / 24h / 2d / 3d.
 - Media broadcast = **future feature** (needs paid WhatsApp API).
 - Design locked to green (`DESIGN.md`); project brief in `CLAUDE.md`.
+- **v2 = Admin Console (§4b)**, built **after v1 ships**, not alongside — ship the safe app first (Lead's call; PO no preference on feature list, so all six are in scope).
 
 ---
 
