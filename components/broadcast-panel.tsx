@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, Send, Info, Check, MessageSquare, Users, RotateCcw } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useApp, type WAPreference } from "@/lib/translations";
+import { useReturnFocus } from "@/hooks/use-return-focus";
 import type { Member } from "@/app/page";
 
 interface BroadcastPanelProps {
@@ -47,6 +54,12 @@ export function BroadcastPanel({
   const [queue, setQueue] = useState<Member[]>([]);
   const [qi, setQi] = useState(0);
   const [sentCount, setSentCount] = useState(0);
+  const returnFocus = useReturnFocus(isOpen);
+  const returnFocusStep = useReturnFocus(broadcasting);
+  // The nested dialog's focus trap defeats `autoFocus` on the primary button, so
+  // steer opening focus to "Open & send" ourselves (keyboard Enter on Start must
+  // not land on Skip and silently skip the first member).
+  const sendRef = useRef<HTMLButtonElement>(null);
 
   // Reset transient state each time the panel opens.
   useEffect(() => {
@@ -56,8 +69,6 @@ export function BroadcastPanel({
       setSentCount(0);
     }
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const notSentCount = members.filter((m) => !sentIds.has(m.id)).length;
   const sentCountTotal = members.filter((m) => sentIds.has(m.id)).length;
@@ -119,242 +130,288 @@ export function BroadcastPanel({
   const current = queue[qi];
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
-      {/* Header */}
-      <header className="flex items-center gap-3 border-b border-border/50 p-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
-          <Send className="h-5 w-5" />
-        </div>
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold text-foreground">{t.broadcast}</h2>
-          <p className="text-xs text-muted-foreground">{t.broadcastSub}</p>
-        </div>
-        <button
-          onClick={onClose}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
-          aria-label={t.done}
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </header>
+    // Radix Dialog gives role=dialog, a linked title/description, Escape-to-close,
+    // a focus trap and focus-return; we set aria-modal explicitly. It keeps the
+    // full-screen look. Component state (message, filter, selection) lives here,
+    // outside the dialog content, so it survives close/reopen exactly as before.
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent
+        aria-modal="true"
+        showCloseButton={false}
+        onCloseAutoFocus={returnFocus}
+        className="inset-0 z-50 flex h-full w-full max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-background p-0 shadow-none sm:max-w-none"
+      >
+        {/* Header */}
+        <header className="flex items-center gap-3 border-b border-border/50 p-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
+            <Send className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <DialogTitle className="leading-7 text-foreground">{t.broadcast}</DialogTitle>
+            <DialogDescription className="text-xs">{t.broadcastSub}</DialogDescription>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-muted hover:text-foreground"
+            aria-label={t.close}
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </header>
 
-      {/* Body */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2">
-          {/* Compose */}
-          <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                <MessageSquare className="h-4 w-4" />
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2">
+            {/* Compose */}
+            <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{t.compose}</h3>
+                  <p className="text-xs text-muted-foreground">{t.composeSub}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">{t.compose}</h3>
-                <p className="text-xs text-muted-foreground">{t.composeSub}</p>
+
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder={t.messagePlaceholder}
+                aria-label={t.compose}
+                rows={5}
+                className="w-full resize-y rounded-xl border border-border bg-input p-3 text-sm text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                {message.length} {t.characters} · {t.nameHint}
+              </p>
+
+              {/* Media is a planned future feature — text only for now. */}
+              <div className="mt-4 flex gap-2 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-muted-foreground">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>{t.mediaComingSoon}</span>
               </div>
-            </div>
+            </section>
 
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder={t.messagePlaceholder}
-              rows={5}
-              className="w-full resize-y rounded-xl border border-border bg-input p-3 text-sm text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              {message.length} {t.characters} · {t.nameHint}
-            </p>
-
-            {/* Media is a planned future feature — text only for now. */}
-            <div className="mt-4 flex gap-2 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-muted-foreground">
-              <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <span>{t.mediaComingSoon}</span>
-            </div>
-          </section>
-
-          {/* Recipients */}
-          <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
-            <div className="mb-4 flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                <Users className="h-4 w-4" />
+            {/* Recipients */}
+            <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Users className="h-4 w-4" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{t.recipients}</h3>
+                  <p className="text-xs text-muted-foreground">{t.recipientsSub}</p>
+                </div>
               </div>
-              <div>
-                <h3 className="font-semibold text-foreground">{t.recipients}</h3>
-                <p className="text-xs text-muted-foreground">{t.recipientsSub}</p>
-              </div>
-            </div>
 
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              {([
-                ["notSent", t.notSent, notSentCount],
-                ["sent", t.sent, sentCountTotal],
-              ] as [Filter, string, number][]).map(([key, label, count]) => (
-                <button
-                  key={key}
-                  onClick={() => setFilter(key)}
-                  aria-pressed={filter === key}
-                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
-                    filter === key
-                      ? "bg-primary text-primary-foreground"
-                      : "border border-border bg-secondary/50 text-muted-foreground hover:border-primary/40"
-                  }`}
-                >
-                  {label}
-                  <span
-                    className={`rounded-full px-1.5 text-[10px] ${
-                      filter === key ? "bg-primary-foreground/25" : "bg-muted"
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                {([
+                  ["notSent", t.notSent, notSentCount],
+                  ["sent", t.sent, sentCountTotal],
+                ] as [Filter, string, number][]).map(([key, label, count]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilter(key)}
+                    aria-pressed={filter === key}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all duration-200 ${
+                      filter === key
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border bg-secondary/50 text-muted-foreground hover:border-primary/40"
                     }`}
                   >
-                    {count}
-                  </span>
-                </button>
-              ))}
-              {sentCountTotal > 0 && (
-                <button
-                  onClick={onResetSent}
-                  title={t.resetSent}
-                  className="ms-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <RotateCcw className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">{t.resetSent}</span>
-                </button>
-              )}
-            </div>
-
-            <div className="mb-2 flex items-center justify-between text-xs">
-              <span className="text-muted-foreground">
-                <span className="font-semibold text-primary">{selectedN}</span> {t.selectedCount}
-              </span>
-              <button onClick={toggleAllShown} className="font-medium text-primary hover:underline">
-                {allShownSelected ? t.clearSelection : t.selectAllShown}
-              </button>
-            </div>
-
-            <div className="flex max-h-80 flex-col gap-2 overflow-y-auto pe-1">
-              {shown.length === 0 ? (
-                <p className="py-10 text-center text-sm text-muted-foreground">{t.noResults}</p>
-              ) : (
-                shown.map((m) => {
-                  const isSel = selected.has(m.id);
-                  const isSent = sentIds.has(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => toggle(m.id)}
-                      aria-pressed={isSel}
-                      className={`flex items-center gap-3 rounded-xl border p-2.5 text-start transition-all duration-150 ${
-                        isSel ? "border-primary bg-primary/10" : "border-border bg-secondary/40 hover:border-border"
+                    {label}
+                    <span
+                      className={`rounded-full px-1.5 text-[10px] ${
+                        filter === key ? "bg-primary-foreground/25" : "bg-muted"
                       }`}
                     >
-                      <span
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
-                          isSel ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                      {count}
+                    </span>
+                  </button>
+                ))}
+                {sentCountTotal > 0 && (
+                  <button
+                    onClick={onResetSent}
+                    title={t.resetSent}
+                    aria-label={t.resetSent}
+                    className="ms-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{t.resetSent}</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="mb-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">
+                  <span className="font-semibold text-primary">{selectedN}</span> {t.selectedCount}
+                </span>
+                <button onClick={toggleAllShown} className="font-medium text-primary hover:underline">
+                  {allShownSelected ? t.clearSelection : t.selectAllShown}
+                </button>
+              </div>
+
+              <div className="flex max-h-80 flex-col gap-2 overflow-y-auto pe-1">
+                {shown.length === 0 ? (
+                  <p className="py-10 text-center text-sm text-muted-foreground">{t.noResults}</p>
+                ) : (
+                  shown.map((m) => {
+                    const isSel = selected.has(m.id);
+                    const isSent = sentIds.has(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => toggle(m.id)}
+                        aria-pressed={isSel}
+                        className={`flex items-center gap-3 rounded-xl border p-2.5 text-start transition-all duration-150 ${
+                          isSel ? "border-primary bg-primary/10" : "border-border bg-secondary/40 hover:border-border"
                         }`}
                       >
-                        {isSel && <Check className="h-3.5 w-3.5" />}
-                      </span>
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
-                        {initials(m.name)}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
-                        <span className="block truncate text-xs text-muted-foreground">{prettyPhone(m.phone)}</span>
-                      </span>
-                      {isSent && (
-                        <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-                          <Check className="h-3 w-3" />
-                          {t.sent}
+                        <span
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all ${
+                            isSel ? "border-primary bg-primary text-primary-foreground" : "border-border"
+                          }`}
+                        >
+                          {isSel && <Check className="h-3.5 w-3.5" />}
                         </span>
-                      )}
-                    </button>
-                  );
-                })
-              )}
-            </div>
-          </section>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="border-t border-border/50 p-4">
-        <div className="mx-auto max-w-3xl">
-          <button
-            onClick={startBroadcast}
-            disabled={selectedN === 0 || !message.trim()}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
-          >
-            <Send className="h-5 w-5" />
-            {selectedN === 0 ? t.selectToStart : `${t.broadcastTo} ${selectedN}`}
-          </button>
-        </div>
-      </div>
-
-      {/* Broadcast step-through */}
-      {broadcasting && current && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
-            <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full bg-primary transition-all duration-300"
-                style={{ width: `${(qi / queue.length) * 100}%` }}
-              />
-            </div>
-            <p className="mb-4 text-center text-xs text-muted-foreground">
-              {t.memberProgress} {qi + 1} {t.of} {queue.length}
-            </p>
-
-            <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                {initials(current.name)}
-              </span>
-              <div>
-                <p className="font-semibold text-foreground">{current.name}</p>
-                <p className="text-xs text-muted-foreground">{prettyPhone(current.phone)}</p>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                          {initials(m.name)}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
+                          <span className="block truncate text-xs text-muted-foreground">{prettyPhone(m.phone)}</span>
+                        </span>
+                        {isSent && (
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                            <Check className="h-3 w-3" />
+                            {t.sent}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
               </div>
-            </div>
-
-            <div className="mb-4 whitespace-pre-wrap rounded-xl rounded-tl-sm border border-border bg-secondary/40 p-3 text-sm text-foreground">
-              {personalMsg(current)}
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={skip}
-                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-              >
-                {t.skip}
-              </button>
-              <button
-                onClick={() => openChat(current)}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-              >
-                <Send className="h-4 w-4" />
-                {t.openAndSend}
-              </button>
-            </div>
+            </section>
           </div>
         </div>
-      )}
 
-      {/* Done */}
-      {broadcasting && !current && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 text-center shadow-2xl">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
-              <Check className="h-7 w-7" />
-            </div>
-            <h3 className="mb-1 text-lg font-semibold text-foreground">{t.broadcastDone}</h3>
-            <p className="mb-5 text-sm text-muted-foreground">
-              {sentCount} {t.of} {queue.length} {t.chatsOpened}
-            </p>
+        {/* Footer */}
+        <div className="border-t border-border/50 p-4">
+          <div className="mx-auto max-w-3xl">
             <button
-              onClick={finishAndClose}
-              className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:brightness-110"
+              onClick={startBroadcast}
+              disabled={selectedN === 0 || !message.trim()}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              {t.done}
+              <Send className="h-5 w-5" />
+              {selectedN === 0 ? t.selectToStart : `${t.broadcastTo} ${selectedN}`}
             </button>
           </div>
         </div>
-      )}
-    </div>
+
+        {/*
+          Step-through + summary: one nested modal Dialog (opens while `broadcasting`).
+          Escape closes it. On a step that only stops the run (nobody is marked sent by
+          closing); on the summary it behaves like "Done". Backdrop clicks do not
+          dismiss it, as before, so a stray tap cannot abort a campaign.
+        */}
+        <Dialog
+          open={broadcasting}
+          onOpenChange={(open) => {
+            if (open) return;
+            if (current) setBroadcasting(false);
+            else finishAndClose();
+          }}
+        >
+          <DialogContent
+            aria-modal="true"
+            showCloseButton={false}
+            overlayClassName="z-[60] bg-background/80 backdrop-blur-sm"
+            onCloseAutoFocus={returnFocusStep}
+            onOpenAutoFocus={(e) => {
+              // On a step, focus "Open & send"; on the summary, let Done's autoFocus win.
+              if (current) {
+                e.preventDefault();
+                sendRef.current?.focus();
+              }
+            }}
+            onPointerDownOutside={(e) => e.preventDefault()}
+            onInteractOutside={(e) => e.preventDefault()}
+            className={`z-[60] gap-0 rounded-2xl border-border bg-card p-6 shadow-2xl ${
+              current ? "sm:max-w-md" : "text-center sm:max-w-sm"
+            }`}
+          >
+            {current ? (
+              <>
+                <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{ width: `${(qi / queue.length) * 100}%` }}
+                  />
+                </div>
+                <DialogTitle className="mb-4 text-center text-xs font-normal leading-normal text-muted-foreground">
+                  {t.memberProgress} {qi + 1} {t.of} {queue.length}
+                </DialogTitle>
+
+                <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                    {initials(current.name)}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-foreground">{current.name}</p>
+                    <p className="text-xs text-muted-foreground">{prettyPhone(current.phone)}</p>
+                  </div>
+                </div>
+
+                <DialogDescription className="mb-4 whitespace-pre-wrap rounded-xl rounded-ss-sm border border-border bg-secondary/40 p-3 text-foreground">
+                  {personalMsg(current)}
+                </DialogDescription>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={skip}
+                    className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                  >
+                    {t.skip}
+                  </button>
+                  <button
+                    ref={sendRef}
+                    onClick={() => openChat(current)}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+                  >
+                    <Send className="h-4 w-4" />
+                    {t.openAndSend}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
+                  <Check className="h-7 w-7" />
+                </div>
+                <DialogTitle className="mb-1 leading-7 text-foreground">{t.broadcastDone}</DialogTitle>
+                <DialogDescription className="mb-5">
+                  {sentCount} {t.of} {queue.length} {t.chatsOpened}
+                </DialogDescription>
+                <button
+                  onClick={finishAndClose}
+                  autoFocus
+                  className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-all hover:brightness-110"
+                >
+                  {t.done}
+                </button>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      </DialogContent>
+    </Dialog>
   );
 }
