@@ -43,6 +43,7 @@ export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder={t.search}
+          aria-label={t.searchLabel}
           className="h-12 w-full rounded-xl border border-border bg-input ps-12 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
       </div>

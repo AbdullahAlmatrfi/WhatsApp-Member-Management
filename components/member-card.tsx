@@ -56,15 +56,17 @@ export function MemberCard({ member, sent, onDelete, onWhatsAppClick }: MemberCa
         <button
           onClick={onWhatsAppClick}
           className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-200 hover:brightness-110 hover:scale-105 active:scale-95"
-          aria-label={`Message ${member.name} on WhatsApp`}
+          aria-label={t.messageOnWhatsApp.replace("{name}", () => member.name)}
         >
           <WhatsAppIcon className="h-5 w-5" />
         </button>
 
         <button
           onClick={onDelete}
-          className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive opacity-0 transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground hover:scale-105 active:scale-95 group-hover:opacity-100"
-          aria-label={`Delete ${member.name}`}
+          // Always visible on touch (no-hover) devices; on hover-capable pointers it
+          // is revealed on card hover OR when anything in the card has keyboard focus.
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/10 text-destructive opacity-100 transition-all duration-200 hover:bg-destructive hover:text-destructive-foreground hover:scale-105 active:scale-95 focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:opacity-0"
+          aria-label={t.deleteMemberLabel.replace("{name}", () => member.name)}
         >
           <Trash2 className="h-5 w-5" />
         </button>

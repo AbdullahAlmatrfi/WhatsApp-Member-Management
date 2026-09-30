@@ -47,11 +47,17 @@ export default function Home() {
   // session can never write into the next user's list.
   const userIdRef = useRef<string | undefined>(undefined);
 
+  // Single hide-timer: a newer toast must get its full 3s, so the previous
+  // timer is cleared before a new one starts (and on unmount).
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(toastTimerRef.current), []);
+
   const toast = (msg: string, variant: ToastVariant = "success") => {
     setToastMessage(msg);
     setToastVariant(variant);
     setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+    clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setShowToast(false), 3000);
   };
 
   // Load members when the signed-in user changes (keyed on the user id, not the

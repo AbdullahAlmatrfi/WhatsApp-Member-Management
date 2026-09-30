@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { X, Globe, Monitor, Moon, Sun, Check } from "lucide-react";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useApp } from "@/lib/translations";
+import { useReturnFocus } from "@/hooks/use-return-focus";
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -43,40 +45,39 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
     }
   };
 
-  // Panel slide direction based on current language
-  const panelPosition = lang === "ar" ? "left-0" : "right-0";
-  const panelBorder = lang === "ar" ? "border-r" : "border-l";
-  const panelSlideOut = lang === "ar" ? "-translate-x-full" : "translate-x-full";
+  // The panel anchors to the inline-end edge: right in LTR, left in RTL (Arabic).
+  // (Sheet's `side` is the primitive's own API; no physical classes are used here.)
+  const panelSide = lang === "ar" ? "left" : "right";
+  const returnFocus = useReturnFocus(isOpen);
 
   return (
-    <>
-      {/* Overlay with subtle depth blur */}
-      <div
-        className={`fixed inset-0 z-40 transition-all duration-300 ${
-          isOpen 
-            ? "opacity-100 bg-background/60 backdrop-blur-[2px]" 
-            : "opacity-0 pointer-events-none bg-background/0 backdrop-blur-0"
-        }`}
-        onClick={onClose}
-      />
-
-      {/* Panel - Direction-aware sliding */}
-      <div
-        className={`fixed top-0 bottom-0 z-50 w-full max-w-[320px] ${panelBorder} border-border/50 bg-card/95 shadow-2xl backdrop-blur-xl ${panelPosition} ${
-          isOpen ? "translate-x-0" : panelSlideOut
-        }`}
-        style={{
-          transition: "transform 280ms cubic-bezier(0.22, 1, 0.36, 1), opacity 280ms cubic-bezier(0.22, 1, 0.36, 1)",
-        }}
+    // Radix Sheet: role=dialog + aria-modal, labelled by the title, Escape and
+    // overlay-click close, focus trapped inside, and the closed panel is
+    // unmounted so it is not in the tab order.
+    <Sheet
+      open={isOpen}
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <SheetContent
+        side={panelSide}
+        aria-modal="true"
+        showCloseButton={false}
+        overlayClassName="bg-background/60 backdrop-blur-[2px]"
+        onCloseAutoFocus={returnFocus}
+        // No description text exists for this panel; the title names it.
+        aria-describedby={undefined}
+        className="w-full max-w-[320px] gap-0 border-border/50 bg-card/95 shadow-2xl backdrop-blur-xl data-[state=closed]:duration-[280ms] data-[state=open]:duration-[280ms] sm:max-w-[320px]"
       >
         <div className="flex h-full flex-col">
           {/* Header */}
           <div className="flex items-center justify-between border-b border-border/50 p-6">
-            <h2 className="text-xl font-semibold text-foreground">{t.settings}</h2>
+            <SheetTitle className="text-xl">{t.settings}</SheetTitle>
             <button
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-all duration-200 hover:bg-muted hover:text-foreground hover:-translate-y-[1px]"
-              aria-label="Close settings"
+              aria-label={t.close}
             >
               <X className="h-5 w-5" />
             </button>
@@ -163,8 +164,8 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             </section>
           </div>
         </div>
-      </div>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -182,6 +183,7 @@ function OptionCard({ icon, label, description, isActive, onClick, disabled }: O
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={isActive}
       className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-200 ${
         isActive
           ? "border-primary bg-primary/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]"
@@ -247,6 +249,7 @@ function LanguageCard({ code, label, isActive, onClick, disabled, labelState }: 
     <button
       onClick={onClick}
       disabled={disabled}
+      aria-pressed={isActive}
       className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-200 ${
         isActive
           ? "border-primary bg-primary/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]"

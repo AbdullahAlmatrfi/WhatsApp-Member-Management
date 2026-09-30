@@ -75,6 +75,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
                 setPhoneError(false);
               }}
               placeholder={t.phonePlaceholder}
+              aria-label={t.phoneLabel}
               aria-invalid={phoneError}
               aria-describedby={phoneError ? "phone-error" : undefined}
               className="h-12 w-full rounded-xl border border-border bg-input ps-16 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 aria-invalid:border-destructive"
@@ -85,6 +86,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t.namePlaceholder}
+            aria-label={t.memberName}
             maxLength={100}
             className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
