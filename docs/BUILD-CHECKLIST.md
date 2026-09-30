@@ -2,7 +2,23 @@
 
 *The one ordered plan the PO proxy and the Lead follow. Supersedes scattered notes. Reflects every decision through 2026-09-30. `[ ]` todo · `[~]` in progress · `[x]` done.*
 
+## 🔍 SCENARIOS ARE THE BACKBONE — the loop every single item goes through
+
+No item on this list is "done" by writing code. Every item — #1 through #11 — goes through the **scenario loop**:
+
+1. **Map** — the `scenario-mapper` lists every scenario for that item: the normal path, the weird/illogical paths, the failure & offline paths, the abuse paths. *(This is the thing we never skip.)*
+2. **Vet** — the advisors challenge those scenarios: 🔍 what else could go wrong + 🛡️ how it could be attacked/leak.
+3. **Build** — the Lead builds to cover **all** those scenarios, not just the happy one.
+4. **Test** — the built item is checked against its scenario list. **An item is only ticked `[x]` when it passes its scenarios.**
+
+The living scenario library is **`docs/SCENARIOS.md`** (~250 mapped) + the fixes in **`docs/SCENARIOS-SOLUTIONS.md`**. Every checklist item points back to its scenarios there. New scenarios found mid-build get added there first, then covered.
+
+**Definition of "done" for any item = its scenarios are mapped, vetted, built-for, and passing.**
+
+---
+
 **Rules we follow every time (no exceptions):**
+- 🔍 **Scenarios first & last** — map + vet the scenarios before building, test against them before ticking done (the loop above). This is rule #1.
 - 🗣️ Mini-me tells Abdullah the short plan → Abdullah says okay → *then* the Lead builds. Never before.
 - 🤝 Every command/decision is first vetted by the two advisors: 🔍 scenario-mapper + 🛡️ black-hat.
 - ✂️ Right-size: the simplest safe thing that ships (data is names+phones, ~3 days, re-collectable → low stakes).
