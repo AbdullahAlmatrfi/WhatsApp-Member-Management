@@ -14,6 +14,7 @@ import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 import {
   fetchMembers,
+  fetchAutoDeleteHours,
   getDbErrorCode,
   insertMember,
   deleteMemberById,
@@ -21,11 +22,15 @@ import {
   resetAllSent,
 } from "@/lib/members-api";
 
+const DEFAULT_RETENTION_HOURS = 72;
+
 export interface Member {
   id: string;
   name: string;
   phone: string;
   sent: boolean;
+  /** ISO timestamp (UTC) the member was added — drives the "Added" tag + auto-delete. */
+  createdAt: string;
 }
 
 export default function Home() {
@@ -39,6 +44,8 @@ export default function Home() {
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [showBroadcast, setShowBroadcast] = useState(false);
+  // The auto-delete window drives the "leaving soon" tag; default until it loads.
+  const [retentionHours, setRetentionHours] = useState(DEFAULT_RETENTION_HOURS);
 
   const [toastVariant, setToastVariant] = useState<ToastVariant>("success");
 
@@ -75,6 +82,7 @@ export default function Home() {
     }
     let active = true;
     setLoadingMembers(true);
+    setRetentionHours(DEFAULT_RETENTION_HOURS);
     fetchMembers()
       .then((rows) => {
         if (active) setMembers(rows);
@@ -85,6 +93,12 @@ export default function Home() {
       .finally(() => {
         if (active) setLoadingMembers(false);
       });
+    // Read the retention window for the "leaving soon" tag; keep the default on error.
+    fetchAutoDeleteHours()
+      .then((h) => {
+        if (active && h > 0) setRetentionHours(h);
+      })
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -239,6 +253,7 @@ export default function Home() {
           <MembersList
             members={members}
             sentIds={sentIds}
+            retentionHours={retentionHours}
             onDeleteRequest={handleDeleteRequest}
             onWhatsAppClick={handleWhatsAppClick}
           />

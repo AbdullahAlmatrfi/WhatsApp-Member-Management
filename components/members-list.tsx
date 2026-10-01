@@ -1,21 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { Search, Users } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Search, Users, Download } from "lucide-react";
 import { MemberCard } from "./member-card";
 import { useApp } from "@/lib/translations";
+import { downloadMembersCsv } from "@/lib/export-csv";
 import type { Member } from "@/app/page";
 
 interface MembersListProps {
   members: Member[];
   sentIds: Set<string>;
+  retentionHours: number;
   onDeleteRequest: (member: Member) => void;
   onWhatsAppClick: (phone: string) => void;
 }
 
-export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick }: MembersListProps) {
+export function MembersList({
+  members,
+  sentIds,
+  retentionHours,
+  onDeleteRequest,
+  onWhatsAppClick,
+}: MembersListProps) {
   const { t } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Reception leaves this open all day, so re-render every minute: the "Added"
+  // labels roll over at Riyadh midnight and "leaving soon" lights up on time.
+  // (addedTag reads `new Date()` on each render — this just triggers the render.)
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const query = searchQuery.trim().toLowerCase();
   const filteredMembers = members.filter(
@@ -31,9 +48,22 @@ export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick
           </div>
           <h2 className="text-xl font-semibold text-foreground">{t.members}</h2>
         </div>
-        <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-medium text-primary">
-          {members.length}
-        </span>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => downloadMembersCsv(members, t)}
+            disabled={members.length === 0}
+            className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
+            aria-label={`${t.downloadAll} (${members.length})`}
+          >
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">
+              {t.downloadAll} ({members.length})
+            </span>
+          </button>
+          <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-medium text-primary">
+            {members.length}
+          </span>
+        </div>
       </div>
 
       <div className="relative mb-6">
@@ -64,6 +94,7 @@ export function MembersList({ members, sentIds, onDeleteRequest, onWhatsAppClick
               key={member.id}
               member={member}
               sent={sentIds.has(member.id)}
+              retentionHours={retentionHours}
               onDelete={() => onDeleteRequest(member)}
               onWhatsAppClick={() => onWhatsAppClick(member.phone)}
             />
