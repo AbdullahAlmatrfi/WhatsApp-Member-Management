@@ -67,12 +67,12 @@ The living scenario library is **`docs/SCENARIOS.md`** (~250 mapped) + the fixes
 
 **Consensus:** the 7 fixes are solid at the core (DB hardening, phone parsing, CSV safety, mark-sent verification, the live-refresh race — all confirmed by multiple reviewers). But the crew found a cluster of real gaps. QA says **don't ship until R1–R3 are fixed.**
 
-**Fix wave (agreed blockers — do before #8 / ship):**
-- [ ] **R1 — noopener regression (security).** The one-tab WhatsApp reuse dropped `noopener`, handing web.whatsapp.com a live `window.opener` back into the app (reopens blocker B8). Fix: keep the named tab but `const win = window.open(url, "gymconnect-whatsapp"); if (win) win.opener = null;` in broadcast-panel + page. *(black-hat #2, scenario #1, QA D8)*
-- [ ] **R2 — failed load shows "No members yet."** A load error only toasts for 3s, then renders the empty state → looks like the roster was wiped; staff re-add everyone. Fix: a mounted error card + Retry, never the `noMembers` state on error. *(frontend #1, QA D3, scenario X-02)*
-- [ ] **R3 — broadcast abort re-messages people.** `selected` isn't pruned on send/abort, so Esc-then-Start re-messages the already-contacted. Fix: drop the id from `selected` on each successful send. *(frontend #4, QA D1, scenario BCAST-27)*
-- [ ] **R4 — Enter-hold still advances.** The 500ms cooldown blocks double-click but holding Enter opens one chat every 500ms. Fix: ignore `onKeyDown` when `e.repeat`. *(QA D2)*
-- [ ] **R5 — sign-out fails silently offline.** On a flaky network sign-out hangs then leaves the session alive on a shared PC. Fix: `signOut()` → on error, `signOut({ scope: "local" })`; show busy/feedback. *(frontend #3, backend #1, QA D6)*
+**Fix wave (agreed blockers — do before #8 / ship):** ✅ ALL DONE (branch merged, tsc clean, EN/AR parity 104/104)
+- [x] **R1 — noopener regression (security).** The one-tab WhatsApp reuse dropped `noopener`, handing web.whatsapp.com a live `window.opener` back into the app (reopens blocker B8). Fix: keep the named tab but `const win = window.open(url, "gymconnect-whatsapp"); if (win) win.opener = null;` in broadcast-panel + page. *(black-hat #2, scenario #1, QA D8)*
+- [x] **R2 — failed load shows "No members yet."** A load error only toasts for 3s, then renders the empty state → looks like the roster was wiped; staff re-add everyone. Fix: a mounted error card + Retry, never the `noMembers` state on error. *(frontend #1, QA D3, scenario X-02)*
+- [x] **R3 — broadcast abort re-messages people.** `selected` isn't pruned on send/abort, so Esc-then-Start re-messages the already-contacted. Fix: drop the id from `selected` on each successful send. *(frontend #4, QA D1, scenario BCAST-27)*
+- [x] **R4 — Enter-hold still advances.** The 500ms cooldown blocks double-click but holding Enter opens one chat every 500ms. Fix: ignore `onKeyDown` when `e.repeat`. *(QA D2)*
+- [x] **R5 — sign-out fails silently offline.** On a flaky network sign-out hangs then leaves the session alive on a shared PC. Fix: `signOut()` → on error, `signOut({ scope: "local" })`; show busy/feedback. *(frontend #3, backend #1, QA D6)*
 
 **Fold into #8 (confirmed on-plan, not new):** pending-approval gate; role-probe routing an RLS *denial* (delete / mark-sent / reset) to the gate; **non-optimistic reset**; session-expired banner; the "never replace a non-empty list with an empty/errored result" guard; tighten `settings_read` so `pending` can't read it.
 

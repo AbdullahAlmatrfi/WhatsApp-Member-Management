@@ -64,7 +64,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // On a flaky network the server logout can fail and auth-js then KEEPS the
+    // session — dangerous on a shared reception PC. Force a local clear so the
+    // next person never inherits the session.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    }
   };
 
   return (

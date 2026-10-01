@@ -41,6 +41,7 @@ export default function Home() {
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Member | null>(null);
@@ -87,9 +88,30 @@ export default function Home() {
   // Load members when the signed-in user changes (keyed on the user id, not the
   // session object, so token refresh / tab focus doesn't refetch). Also wipes
   // member data and overlay state on sign-out so the next user never sees it.
+  // Load the member list. On failure it sets loadError (a mounted Retry card)
+  // instead of leaving the empty "No members yet" state, which looks like the
+  // roster was wiped. Stable identity so it's reusable from the Retry button.
+  const loadMembers = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!uid) return;
+    setLoadingMembers(true);
+    setLoadError(false);
+    try {
+      const rows = await fetchMembers();
+      if (userIdRef.current !== uid) return;
+      setMembers(rows);
+    } catch {
+      if (userIdRef.current !== uid) return;
+      setLoadError(true);
+    } finally {
+      if (userIdRef.current === uid) setLoadingMembers(false);
+    }
+  }, []);
+
   useEffect(() => {
     userIdRef.current = userId;
     setMembers([]);
+    setLoadError(false);
     setDeleteTarget(null);
     setShowSettings(false);
     setShowBroadcast(false);
@@ -97,20 +119,10 @@ export default function Home() {
       setLoadingMembers(true);
       return;
     }
-    let active = true;
-    setLoadingMembers(true);
     setRetentionHours(DEFAULT_RETENTION_HOURS);
-    fetchMembers()
-      .then((rows) => {
-        if (active) setMembers(rows);
-      })
-      .catch(() => {
-        if (active) toast(t.loadFailed, "error");
-      })
-      .finally(() => {
-        if (active) setLoadingMembers(false);
-      });
+    loadMembers();
     // Read the retention window for the "leaving soon" tag; keep the default on error.
+    let active = true;
     fetchAutoDeleteHours()
       .then((h) => {
         if (active && h > 0) setRetentionHours(h);
@@ -119,8 +131,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, loadMembers]);
 
   // Background refresh so two staff on different devices don't drift apart.
   // Guards: never while a write is in flight (would clobber the optimistic
@@ -273,7 +284,15 @@ export default function Home() {
   const handleWhatsAppClick = (phone: string) => {
     if (waPreference === "web") {
       // Named target reuses one WhatsApp Web tab across sends (matches Broadcast).
-      window.open(`https://web.whatsapp.com/send?phone=${phone}`, "gymconnect-whatsapp");
+      // Null window.opener (can't use "noopener" — it breaks tab reuse).
+      const win = window.open(`https://web.whatsapp.com/send?phone=${phone}`, "gymconnect-whatsapp");
+      if (win) {
+        try {
+          win.opener = null;
+        } catch {
+          /* cross-origin handle may refuse — target is trusted WhatsApp Web */
+        }
+      }
     } else {
       window.location.href = `whatsapp://send?phone=${phone}`;
     }
@@ -353,6 +372,16 @@ export default function Home() {
           <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             {t.loadingMembers}
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/50 bg-card p-12 text-center">
+            <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
+            <button
+              onClick={() => loadMembers()}
+              className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
+            >
+              {t.retry}
+            </button>
           </div>
         ) : (
           <MembersList
