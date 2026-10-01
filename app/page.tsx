@@ -115,7 +115,14 @@ export default function Home() {
     const previousSent = previous.sent;
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: true } : m)));
     try {
-      await setMemberSent(id, true);
+      const applied = await setMemberSent(id, true);
+      if (userIdRef.current !== uid) return;
+      if (!applied) {
+        // The write didn't land (member already gone, or not permitted). Never
+        // leave someone shown as "Messaged" who wasn't — roll the flag back.
+        // No scary error: a gone member is benign; a refresh drops the row.
+        setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));
+      }
     } catch {
       if (userIdRef.current !== uid) return;
       setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));

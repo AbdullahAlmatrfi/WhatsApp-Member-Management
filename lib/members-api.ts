@@ -57,17 +57,31 @@ export async function fetchAutoDeleteHours(): Promise<number> {
 }
 
 export async function deleteMemberById(id: string): Promise<void> {
-  // .select() so a 0-row result (row already gone / RLS-blocked) is a failure,
-  // not a silent success — the caller then rolls back the optimistic update.
-  const { data, error } = await supabase.from("members").delete().eq("id", id).select("id");
+  // Idempotent delete: the goal is "this member is gone." A 0-row result means
+  // the row was already gone (a colleague deleted it, or the auto-delete sweep
+  // ran) — that is success, not failure, so we must NOT roll the optimistic
+  // removal back and resurrect a ghost row. Only a real DB/network error throws.
+  const { error } = await supabase.from("members").delete().eq("id", id);
   if (error) throw error;
-  if (!data || data.length === 0) throw new Error("member not found or not permitted");
 }
 
-export async function setMemberSent(id: string, sent: boolean): Promise<void> {
-  const { data, error } = await supabase.from("members").update({ sent }).eq("id", id).select("id");
+/**
+ * Marks a member sent/unsent. Returns whether the change actually landed.
+ *
+ * An RLS-blocked or no-match UPDATE returns 0 rows with NO error code, so we
+ * can't trust "no error" to mean "it worked." We select the row back and verify
+ * `sent` is really the value we set. A 0-row / unverified result returns `false`
+ * instead of silently succeeding — so the caller never shows someone as
+ * "Messaged" who wasn't. Only a real DB/network error throws.
+ */
+export async function setMemberSent(id: string, sent: boolean): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("members")
+    .update({ sent })
+    .eq("id", id)
+    .select("id,sent");
   if (error) throw error;
-  if (!data || data.length === 0) throw new Error("member not found or not permitted");
+  return (data ?? []).some((r) => r.id === id && r.sent === sent);
 }
 
 export async function resetAllSent(): Promise<void> {
