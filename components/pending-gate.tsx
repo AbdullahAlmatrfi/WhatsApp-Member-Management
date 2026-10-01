@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, LogOut } from "lucide-react";
+import { Clock, LogOut, RefreshCw } from "lucide-react";
 import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 
@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
  */
 export function PendingGate() {
   const { t } = useApp();
-  const { signOut } = useAuth();
+  const { signOut, refreshRole } = useAuth();
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
@@ -21,13 +21,22 @@ export function PendingGate() {
         </div>
         <h1 className="mb-2 text-xl font-semibold text-foreground">{t.pendingTitle}</h1>
         <p className="mb-6 text-sm text-muted-foreground">{t.pendingBody}</p>
-        <button
-          onClick={() => signOut()}
-          className="mx-auto flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
-        >
-          <LogOut className="h-4 w-4" />
-          {t.signOut}
-        </button>
+        <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={() => refreshRole()}
+            className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
+          >
+            <RefreshCw className="h-4 w-4" />
+            {t.checkAgain}
+          </button>
+          <button
+            onClick={() => signOut()}
+            className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+          >
+            <LogOut className="h-4 w-4" />
+            {t.signOut}
+          </button>
+        </div>
       </div>
     </main>
   );

@@ -82,6 +82,11 @@ begin
   end if;
 end $do$;
 
+-- Fail closed: any profile row created outside the trigger (e.g. a manual
+-- dashboard insert) must default to 'pending', not 'staff'. `create table if
+-- not exists` won't change an existing table's default, so set it explicitly.
+alter table public.profiles alter column role set default 'pending';
+
 -- ---------- SETTINGS (single row of app config) ---------------------
 create table if not exists public.settings (
   id                 int primary key default 1,

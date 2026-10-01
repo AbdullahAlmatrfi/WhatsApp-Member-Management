@@ -56,13 +56,15 @@ export async function fetchAutoDeleteHours(): Promise<number> {
   return Math.min(h, 8760);
 }
 
-export async function deleteMemberById(id: string): Promise<void> {
-  // Idempotent delete: the goal is "this member is gone." A 0-row result means
-  // the row was already gone (a colleague deleted it, or the auto-delete sweep
-  // ran) — that is success, not failure, so we must NOT roll the optimistic
-  // removal back and resurrect a ghost row. Only a real DB/network error throws.
-  const { error } = await supabase.from("members").delete().eq("id", id);
+export async function deleteMemberById(id: string): Promise<number> {
+  // Returns how many rows were deleted. 0 is NOT an error here: it means the row
+  // was already gone (idempotent — a colleague deleted it or the sweep ran) OR
+  // the delete was RLS-blocked (revoked access). The caller re-checks the role
+  // to tell those apart, so a revoked user never sees a false "deleted". Only a
+  // real DB/network error throws.
+  const { data, error } = await supabase.from("members").delete().eq("id", id).select("id");
   if (error) throw error;
+  return data?.length ?? 0;
 }
 
 /**
@@ -101,13 +103,20 @@ export async function resetAllSent(): Promise<number> {
  * only ever returns their row). null when there's no profile / not signed in.
  * Drives the approval gate and the revoked-mid-session routing. */
 export type Role = "pending" | "staff" | "admin";
-export async function fetchMyRole(): Promise<Role | null> {
-  const { data, error } = await supabase.from("profiles").select("role").maybeSingle();
+export async function fetchMyRole(userId: string): Promise<Role | null> {
+  // Scope to the caller's own id explicitly. RLS already returns only their row
+  // today, but an admin "read all profiles" policy (v2) would make an unscoped
+  // maybeSingle() throw on multiple rows and lock admins out — so filter here.
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
   if (error) throw error;
   return (data?.role ?? null) as Role | null;
 }
 
 /** Only these roles may use the app; anything else sees the approval gate. */
-export function isApprovedRole(role: Role | null): boolean {
+export function isApprovedRole(role: Role | null | undefined): boolean {
   return role === "staff" || role === "admin";
 }

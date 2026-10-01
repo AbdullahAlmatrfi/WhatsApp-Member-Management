@@ -39,7 +39,7 @@ export interface Member {
 
 export default function Home() {
   const { t, waPreference } = useApp();
-  const { session, loading: authLoading, role, roleError, refreshRole, signOut } = useAuth();
+  const { session, loading: authLoading, role, roleResolved, roleError, refreshRole, signOut } = useAuth();
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -126,6 +126,10 @@ export default function Home() {
       setLoadingMembers(true);
       return;
     }
+    // Don't load member data (or read settings) until the account is approved —
+    // a pending/revoked user sees the gate, and these requests would just fail.
+    // When the role flips to approved, this effect re-runs and loads for real.
+    if (!isApprovedRole(role)) return;
     setRetentionHours(DEFAULT_RETENTION_HOURS);
     loadMembers();
     // Read the retention window for the "leaving soon" tag; keep the default on error.
@@ -138,7 +142,7 @@ export default function Home() {
     return () => {
       active = false;
     };
-  }, [userId, loadMembers]);
+  }, [userId, role, loadMembers]);
 
   // Background refresh so two staff on different devices don't drift apart.
   // Guards: never while a write is in flight (would clobber the optimistic
@@ -158,11 +162,14 @@ export default function Home() {
       if (userIdRef.current !== uid || writesInFlight.current > 0 || writeEpoch.current !== epoch) {
         return;
       }
-      // Guard: an empty result while we had members is suspicious (access
-      // revoked, or a blip). Don't wipe the list to a false "No members" — keep
-      // what's shown and re-check the role, which routes a revoked user to the gate.
+      // An empty result while we had members is ambiguous: access revoked, or
+      // the gym genuinely emptied. Re-check the role: if still approved it's a
+      // real empty list (accept it); if not, the gate takes over; if the probe
+      // errored, keep the current list rather than wiping it on a blip.
       if (rows.length === 0 && membersCountRef.current > 0) {
-        refreshRoleRef.current();
+        const r = await refreshRoleRef.current();
+        if (userIdRef.current !== uid) return;
+        if (isApprovedRole(r)) setMembers([]);
         return;
       }
       setMembers(rows);
@@ -205,10 +212,11 @@ export default function Home() {
       const applied = await setMemberSent(id, true);
       if (userIdRef.current !== uid) return;
       if (!applied) {
-        // The write didn't land (member already gone, or not permitted). Never
-        // leave someone shown as "Messaged" who wasn't — roll the flag back.
-        // No scary error: a gone member is benign; a refresh drops the row.
+        // The write didn't land (member already gone, or access revoked). Never
+        // leave someone shown as "Messaged" who wasn't — roll the flag back, and
+        // re-check the role so a revoked user is routed to the gate.
         setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));
+        refreshRole();
       }
     } catch {
       if (userIdRef.current !== uid) return;
@@ -232,7 +240,12 @@ export default function Home() {
       const cleared = await resetAllSent();
       if (userIdRef.current !== uid) return;
       if (cleared === 0 && hadSent > 0) {
-        refreshRole();
+        // Nothing cleared though some were sent: either a colleague already
+        // reset (still approved → safe to clear locally) or access was revoked
+        // (→ gate). Probe the role to decide.
+        const r = await refreshRole();
+        if (userIdRef.current !== uid) return;
+        if (isApprovedRole(r)) setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
         return;
       }
       setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
@@ -267,7 +280,11 @@ export default function Home() {
       const code = getDbErrorCode(err);
       if (code === "23505") toast(t.numberExists, "error");
       else if (code === "23514") toast(t.phoneInvalid, "error");
-      else toast(t.saveFailed, "error");
+      else if (code === "42501") {
+        // RLS blocked the insert — access was revoked. Route to the gate.
+        toast(t.saveFailed, "error");
+        refreshRole();
+      } else toast(t.saveFailed, "error");
       return false;
     } finally {
       writesInFlight.current--;
@@ -288,8 +305,17 @@ export default function Home() {
     writesInFlight.current++;
     writeEpoch.current++;
     try {
-      await deleteMemberById(target.id);
-      toast(t.memberDeleted);
+      const removed = await deleteMemberById(target.id);
+      if (userIdRef.current !== uid) return;
+      if (removed === 0) {
+        // 0 rows: either already gone (benign) or RLS-blocked (revoked). Probe
+        // the role — only confirm "deleted" if still approved; else the gate shows.
+        const r = await refreshRole();
+        if (userIdRef.current !== uid) return;
+        if (isApprovedRole(r)) toast(t.memberDeleted);
+      } else {
+        toast(t.memberDeleted);
+      }
     } catch {
       if (userIdRef.current !== uid) return;
       setMembers((prev) => {
@@ -346,19 +372,36 @@ export default function Home() {
     );
   }
   if (!session) return <LoginScreen />;
-  // Couldn't verify the role (network/timeout) — a blip, NOT a rejection. Offer
-  // a retry instead of wrongly showing the "waiting for approval" gate.
-  if (roleError) {
+  // Role not yet known for this session → hold a spinner, never flash the gate.
+  if (!roleResolved && !roleError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
+  // Couldn't verify the role (network/timeout) and we don't already know the
+  // user is approved — a blip, NOT a rejection. Offer a retry (not the gate, not
+  // a kick-out of an approved session mid-work).
+  if (roleError && !isApprovedRole(role)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
           <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
-          <button
-            onClick={() => refreshRole()}
-            className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
-          >
-            {t.retry}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refreshRole()}
+              className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
+            >
+              {t.retry}
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="flex h-10 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+            >
+              {t.signOut}
+            </button>
+          </div>
         </div>
       </main>
     );
