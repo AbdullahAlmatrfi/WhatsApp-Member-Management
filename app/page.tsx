@@ -168,7 +168,11 @@ export default function Home() {
       // errored, keep the current list rather than wiping it on a blip.
       if (rows.length === 0 && membersCountRef.current > 0) {
         const r = await refreshRoleRef.current();
-        if (userIdRef.current !== uid) return;
+        // Re-check after the probe round-trip: a write may have started/finished
+        // (e.g. an add) meanwhile — don't wipe its row.
+        if (userIdRef.current !== uid || writesInFlight.current > 0 || writeEpoch.current !== epoch) {
+          return;
+        }
         if (isApprovedRole(r)) setMembers([]);
         return;
       }
