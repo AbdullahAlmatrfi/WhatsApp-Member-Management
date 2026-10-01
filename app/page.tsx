@@ -21,6 +21,7 @@ import {
   setMemberSent,
   resetAllSent,
 } from "@/lib/members-api";
+import { toStoredPhone } from "@/lib/phone";
 
 const DEFAULT_RETENTION_HOURS = 72;
 
@@ -147,7 +148,7 @@ export default function Home() {
   const handleAddMember = async (name: string, phone: string): Promise<boolean> => {
     const uid = userIdRef.current;
     // Form guarantees `phone` is exactly 9 digits starting with 5 (FR-12).
-    const fullPhone = `966${phone}`;
+    const fullPhone = toStoredPhone(phone);
     if (members.some((m) => m.phone === fullPhone)) {
       toast(t.numberExists, "error");
       return false;

@@ -5,6 +5,7 @@ import { Search, Users, Download } from "lucide-react";
 import { MemberCard } from "./member-card";
 import { useApp } from "@/lib/translations";
 import { downloadMembersCsv } from "@/lib/export-csv";
+import { phoneMatches } from "@/lib/phone";
 import type { Member } from "@/app/page";
 
 interface MembersListProps {
@@ -34,9 +35,11 @@ export function MembersList({
     return () => clearInterval(id);
   }, []);
 
-  const query = searchQuery.trim().toLowerCase();
+  const query = searchQuery.trim();
+  const nameQuery = query.toLowerCase();
   const filteredMembers = members.filter(
-    (member) => member.name.toLowerCase().includes(query) || member.phone.includes(query)
+    (member) =>
+      member.name.toLowerCase().includes(nameQuery) || phoneMatches(member.phone, query)
   );
 
   return (
