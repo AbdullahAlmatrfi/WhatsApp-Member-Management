@@ -52,11 +52,13 @@ export function MembersList({
           <button
             onClick={() => downloadMembersCsv(members, t)}
             disabled={members.length === 0}
-            className="flex h-9 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
-            aria-label={t.downloadList}
+            className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
+            aria-label={`${t.downloadAll} (${members.length})`}
           >
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.downloadList}</span>
+            <span className="hidden sm:inline">
+              {t.downloadAll} ({members.length})
+            </span>
           </button>
           <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-medium text-primary">
             {members.length}

@@ -48,7 +48,7 @@ const translations = {
     addedDaysAgo: "{n} days ago",
     leavingSoon: "leaving soon",
     // CSV export
-    downloadList: "Download list",
+    downloadAll: "Download all",
     csvName: "Name",
     csvPhone: "Phone",
     csvStatus: "Status",
@@ -151,7 +151,7 @@ const translations = {
     addedDaysAgo: "قبل {n} أيام",
     leavingSoon: "يُحذف قريباً",
     // CSV export
-    downloadList: "تنزيل القائمة",
+    downloadAll: "تنزيل الكل",
     csvName: "الاسم",
     csvPhone: "الجوال",
     csvStatus: "الحالة",

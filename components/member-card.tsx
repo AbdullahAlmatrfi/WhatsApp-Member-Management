@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2 } from "lucide-react";
+import { Trash2, Clock } from "lucide-react";
 import type { Member } from "@/app/page";
 import { useApp } from "@/lib/translations";
 import { addedTag } from "@/lib/format";
@@ -60,7 +60,11 @@ export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppC
             </span>
           )}
           {tag?.leavingSoon && (
-            <span className="inline-block whitespace-nowrap rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-medium text-destructive">
+            // Neutral chip + clock icon, not red: "leaving soon" is a countdown,
+            // not an error, and DESIGN.md keeps the destructive color for
+            // delete/errors only. The icon carries the urgency instead.
+            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+              <Clock className="h-3 w-3" aria-hidden="true" />
               {t.leavingSoon}
             </span>
           )}

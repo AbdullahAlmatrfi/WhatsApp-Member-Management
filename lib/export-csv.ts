@@ -14,6 +14,15 @@ type CsvStrings = {
   notSent: string;
 };
 
+function formatPhoneForCsv(phone: string): string {
+  // Space-grouped digits so the number stays TEXT in both Excel and Google
+  // Sheets — no scientific-notation mangling, and no stray leading apostrophe
+  // (Sheets shows that apostrophe literally). No leading "+": the csvCell guard
+  // would prefix it with an apostrophe. Anything unexpected is left untouched.
+  if (!/^\d{12}$/.test(phone)) return phone;
+  return `${phone.slice(0, 3)} ${phone.slice(3, 5)} ${phone.slice(5, 8)} ${phone.slice(8)}`;
+}
+
 function csvCell(value: string): string {
   let s = value ?? "";
   // Neutralize spreadsheet formula injection: a member named "=HYPERLINK(...)",
@@ -29,7 +38,7 @@ export function buildMembersCsv(members: Member[], t: CsvStrings): string {
   const lines = members.map((m) =>
     [
       csvCell(m.name),
-      csvCell("'" + m.phone), // leading apostrophe keeps Excel from mangling the 12-digit number
+      csvCell(formatPhoneForCsv(m.phone)), // space-grouped: stays text in Excel + Sheets
       csvCell(m.sent ? t.sent : t.notSent),
       csvCell(formatDateRiyadh(m.createdAt)),
     ].join(",")
