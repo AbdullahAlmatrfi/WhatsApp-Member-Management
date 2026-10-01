@@ -162,10 +162,14 @@ drop policy if exists profiles_self_read on public.profiles;
 create policy profiles_self_read on public.profiles
   for select to authenticated using (auth.uid() = id);
 
--- settings: everyone logged-in can read; only an admin can change
+-- settings: only approved (admin/staff) accounts can read; only an admin changes.
+-- (was using (true): a 'pending' self-signup could read auto_delete_hours. The
+--  app reads this for the "leaving soon" tag, which only approved users see.)
 drop policy if exists settings_read on public.settings;
 create policy settings_read on public.settings
-  for select to authenticated using (true);
+  for select to authenticated
+  using (exists (select 1 from public.profiles p
+                 where p.id = (select auth.uid()) and p.role in ('admin','staff')));
 
 drop policy if exists settings_admin_update on public.settings;
 create policy settings_admin_update on public.settings

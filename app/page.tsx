@@ -10,6 +10,7 @@ import { DeleteDialog } from "@/components/delete-dialog";
 import { SettingsPanel } from "@/components/settings-panel";
 import { BroadcastPanel } from "@/components/broadcast-panel";
 import { LoginScreen } from "@/components/login-screen";
+import { PendingGate } from "@/components/pending-gate";
 import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 import {
@@ -20,6 +21,7 @@ import {
   deleteMemberById,
   setMemberSent,
   resetAllSent,
+  isApprovedRole,
 } from "@/lib/members-api";
 import { toStoredPhone } from "@/lib/phone";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
@@ -37,7 +39,7 @@ export interface Member {
 
 export default function Home() {
   const { t, waPreference } = useApp();
-  const { session, loading: authLoading, signOut } = useAuth();
+  const { session, loading: authLoading, role, roleError, refreshRole, signOut } = useAuth();
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -71,6 +73,11 @@ export default function Home() {
   useEffect(() => {
     panelOpenRef.current = showBroadcast;
   }, [showBroadcast]);
+  // Latest member count + role refresher, read inside the stable refreshMembers.
+  const membersCountRef = useRef(0);
+  membersCountRef.current = members.length;
+  const refreshRoleRef = useRef(refreshRole);
+  refreshRoleRef.current = refreshRole;
 
   // Single hide-timer: a newer toast must get its full 3s, so the previous
   // timer is cleared before a new one starts (and on unmount).
@@ -151,6 +158,13 @@ export default function Home() {
       if (userIdRef.current !== uid || writesInFlight.current > 0 || writeEpoch.current !== epoch) {
         return;
       }
+      // Guard: an empty result while we had members is suspicious (access
+      // revoked, or a blip). Don't wipe the list to a false "No members" — keep
+      // what's shown and re-check the role, which routes a revoked user to the gate.
+      if (rows.length === 0 && membersCountRef.current > 0) {
+        refreshRoleRef.current();
+        return;
+      }
       setMembers(rows);
     } catch {
       // Silent: a failed background refresh keeps what's on screen.
@@ -163,7 +177,10 @@ export default function Home() {
   useEffect(() => {
     if (!userId) return;
     const onVisible = () => {
-      if (document.visibilityState === "visible") refreshMembers();
+      if (document.visibilityState === "visible") {
+        refreshRole(); // catch access revoked while the tab was away → routes to gate
+        refreshMembers();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     const id = setInterval(refreshMembers, 90_000);
@@ -171,7 +188,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", onVisible);
       clearInterval(id);
     };
-  }, [userId, refreshMembers]);
+  }, [userId, refreshMembers, refreshRole]);
 
   // "Sent" is a column on each member now (single source of truth).
   const sentIds = new Set(members.filter((m) => m.sent).map((m) => m.id));
@@ -205,15 +222,22 @@ export default function Home() {
 
   const resetSent = async () => {
     const uid = userIdRef.current;
-    const wasSentIds = new Set(sentIds);
-    setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
+    const hadSent = sentIds.size;
+    // Non-optimistic: wait for the server, THEN clear. A 0-row result while
+    // members were marked sent means the update was RLS-blocked (revoked
+    // access) — don't show a false "reset"; re-check the role (→ gate).
     writesInFlight.current++;
     writeEpoch.current++;
     try {
-      await resetAllSent();
+      const cleared = await resetAllSent();
+      if (userIdRef.current !== uid) return;
+      if (cleared === 0 && hadSent > 0) {
+        refreshRole();
+        return;
+      }
+      setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
     } catch {
       if (userIdRef.current !== uid) return;
-      setMembers((prev) => prev.map((m) => (wasSentIds.has(m.id) ? { ...m, sent: true } : m)));
       toast(t.saveFailed, "error");
     } finally {
       writesInFlight.current--;
@@ -322,6 +346,25 @@ export default function Home() {
     );
   }
   if (!session) return <LoginScreen />;
+  // Couldn't verify the role (network/timeout) — a blip, NOT a rejection. Offer
+  // a retry instead of wrongly showing the "waiting for approval" gate.
+  if (roleError) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
+          <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
+          <button
+            onClick={() => refreshRole()}
+            className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
+          >
+            {t.retry}
+          </button>
+        </div>
+      </main>
+    );
+  }
+  // Signed in but not approved (pending / no profile / revoked) → friendly gate.
+  if (!isApprovedRole(role)) return <PendingGate />;
 
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">

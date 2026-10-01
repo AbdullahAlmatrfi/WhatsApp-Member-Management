@@ -1,8 +1,9 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./supabase/client";
+import { fetchMyRole, type Role } from "./members-api";
 
 /** Why a sign-in failed, so the UI can tell the truth instead of always
  * blaming the password. */
@@ -25,6 +26,13 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
+  /** The signed-in user's role; null when unknown/no profile. */
+  role: Role | null;
+  /** True when the role probe itself failed (network/timeout) — a blip, NOT a
+   * rejection. The UI shows a retry, never the approval gate, in this case. */
+  roleError: boolean;
+  /** Re-check the role (used to catch access revoked mid-session). */
+  refreshRole: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
 }
@@ -33,7 +41,22 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [role, setRole] = useState<Role | null>(null);
+  const [roleError, setRoleError] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Re-check the role. On SUCCESS it sets the known role (pending/staff/admin
+  // or null = no profile). On ERROR it flags roleError and does NOT downgrade
+  // the role — a flaky network must never masquerade as "not approved".
+  const refreshRole = useCallback(async () => {
+    try {
+      const r = await fetchMyRole();
+      setRole(r);
+      setRoleError(false);
+    } catch {
+      setRoleError(true);
+    }
+  }, []);
 
   useEffect(() => {
     // Unconfigured: don't fire a doomed request at the placeholder host — just
@@ -42,14 +65,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
+    let mounted = true;
     supabase.auth
       .getSession()
-      .then(({ data }) => setSession(data.session))
-      .finally(() => setLoading(false));
+      .then(async ({ data }) => {
+        if (!mounted) return;
+        setSession(data.session);
+        if (data.session) await refreshRole();
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+      if (s) {
+        refreshRole();
+      } else {
+        setRole(null);
+        setRoleError(false);
+      }
+    });
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, [refreshRole]);
 
   const signIn = async (email: string, password: string): Promise<SignInResult> => {
     if (!isSupabaseConfigured) return { ok: false, reason: "connection" };
@@ -74,7 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user: session?.user ?? null, loading, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{ session, user: session?.user ?? null, loading, role, roleError, refreshRole, signIn, signOut }}
+    >
       {children}
     </AuthContext.Provider>
   );
