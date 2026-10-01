@@ -54,8 +54,21 @@ export function BroadcastPanel({
   const [queue, setQueue] = useState<Member[]>([]);
   const [qi, setQi] = useState(0);
   const [sentCount, setSentCount] = useState(0);
+  const [confirmReset, setConfirmReset] = useState(false);
+  // Time-based cooldown so a double-click / Enter-hold on "Open & send" (or Skip)
+  // can't rip through several members unseen. Keying off `qi` wouldn't work: qi
+  // advances synchronously, so the repeat event already sees the next step.
+  const lastAdvanceAt = useRef(0);
+  const ADVANCE_COOLDOWN_MS = 500;
+  const canAdvance = () => {
+    const now = Date.now();
+    if (now - lastAdvanceAt.current < ADVANCE_COOLDOWN_MS) return false;
+    lastAdvanceAt.current = now;
+    return true;
+  };
   const returnFocus = useReturnFocus(isOpen);
   const returnFocusStep = useReturnFocus(broadcasting);
+  const returnFocusReset = useReturnFocus(confirmReset);
   // The nested dialog's focus trap defeats `autoFocus` on the primary button, so
   // steer opening focus to "Open & send" ourselves (keyboard Enter on Start must
   // not land on Skip and silently skip the first member).
@@ -67,6 +80,8 @@ export function BroadcastPanel({
       setBroadcasting(false);
       setQi(0);
       setSentCount(0);
+      setConfirmReset(false);
+      lastAdvanceAt.current = 0;
     }
   }, [isOpen]);
 
@@ -102,22 +117,35 @@ export function BroadcastPanel({
     setQueue(q);
     setQi(0);
     setSentCount(0);
+    lastAdvanceAt.current = 0;
     setBroadcasting(true);
   };
 
   const openChat = (m: Member) => {
+    if (!canAdvance()) return; // ignore double-click / key auto-repeat
     const text = encodeURIComponent(personalMsg(m));
-    const url =
-      waPreference === "web"
-        ? `https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`
-        : `whatsapp://send?phone=${m.phone}&text=${text}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+    if (waPreference === "web") {
+      // One reused tab (named target) instead of a new tab per member — a 50-person
+      // broadcast must not spawn 50 WhatsApp Web tabs.
+      const win = window.open(`https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`, "gymconnect-whatsapp");
+      if (!win) {
+        // Popup blocked: don't mark them messaged or advance — let staff retry.
+        lastAdvanceAt.current = 0;
+        return;
+      }
+    } else {
+      // Desktop scheme may legitimately return null, so we don't gate on it.
+      window.open(`whatsapp://send?phone=${m.phone}&text=${text}`, "_blank", "noopener,noreferrer");
+    }
     onMarkSent(m.id);
     setSentCount((c) => c + 1);
     setQi((i) => i + 1);
   };
 
-  const skip = () => setQi((i) => i + 1);
+  const skip = () => {
+    if (!canAdvance()) return; // ignore double-click / key auto-repeat
+    setQi((i) => i + 1);
+  };
 
   const finishAndClose = () => {
     setBroadcasting(false);
@@ -237,7 +265,7 @@ export function BroadcastPanel({
                 ))}
                 {sentCountTotal > 0 && (
                   <button
-                    onClick={onResetSent}
+                    onClick={() => setConfirmReset(true)}
                     title={t.resetSent}
                     aria-label={t.resetSent}
                     className="ms-auto flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
@@ -409,6 +437,46 @@ export function BroadcastPanel({
                 </button>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Confirm before wiping the "sent" marks — it can't be undone. */}
+        <Dialog
+          open={confirmReset}
+          onOpenChange={(open) => {
+            if (!open) setConfirmReset(false);
+          }}
+        >
+          <DialogContent
+            aria-modal="true"
+            showCloseButton={false}
+            overlayClassName="z-[60] bg-background/80 backdrop-blur-sm"
+            onCloseAutoFocus={returnFocusReset}
+            className="z-[60] gap-0 rounded-2xl border-border bg-card p-6 text-center shadow-2xl sm:max-w-sm"
+          >
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
+              <RotateCcw className="h-7 w-7" />
+            </div>
+            <DialogTitle className="mb-1 leading-7 text-foreground">{t.resetConfirmTitle}</DialogTitle>
+            <DialogDescription className="mb-5">{t.resetConfirmBody}</DialogDescription>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setConfirmReset(false)}
+                autoFocus
+                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              >
+                {t.cancel}
+              </button>
+              <button
+                onClick={() => {
+                  onResetSent();
+                  setConfirmReset(false);
+                }}
+                className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+              >
+                {t.resetConfirmYes}
+              </button>
+            </div>
           </DialogContent>
         </Dialog>
       </DialogContent>

@@ -197,7 +197,8 @@ export default function Home() {
 
   const handleWhatsAppClick = (phone: string) => {
     if (waPreference === "web") {
-      window.open(`https://web.whatsapp.com/send?phone=${phone}`, "_blank", "noopener,noreferrer");
+      // Named target reuses one WhatsApp Web tab across sends (matches Broadcast).
+      window.open(`https://web.whatsapp.com/send?phone=${phone}`, "gymconnect-whatsapp");
     } else {
       window.location.href = `whatsapp://send?phone=${phone}`;
     }
