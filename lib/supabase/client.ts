@@ -16,7 +16,21 @@ if (!url || !anonKey) {
   );
 }
 
-export const supabase = createClient(url ?? "", anonKey ?? "");
+// Give every request a ceiling so a dead network / paused project can't leave
+// an action hanging forever (which would freeze an optimistic update with no
+// confirmation). A timed-out request rejects like any other network error.
+const REQUEST_TIMEOUT_MS = 15_000;
+const fetchWithTimeout: typeof fetch = (input, init = {}) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  return fetch(input, { ...init, signal: controller.signal }).finally(() =>
+    clearTimeout(timer)
+  );
+};
+
+export const supabase = createClient(url ?? "", anonKey ?? "", {
+  global: { fetch: fetchWithTimeout },
+});
 
 export type MemberRow = {
   id: string;
