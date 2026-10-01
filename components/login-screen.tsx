@@ -18,9 +18,11 @@ export function LoginScreen() {
     if (!email.trim() || !password) return;
     setBusy(true);
     setError("");
-    const { error } = await signIn(email.trim(), password);
-    if (error) {
-      setError(t.loginFailed);
+    const result = await signIn(email.trim(), password);
+    if (!result.ok) {
+      // Tell the truth: wrong credentials vs. couldn't connect. Typed email +
+      // password are left untouched so nothing has to be re-entered.
+      setError(result.reason === "credentials" ? t.loginFailed : t.loginConnError);
       setBusy(false);
     }
     // On success, the auth listener swaps the screen automatically.

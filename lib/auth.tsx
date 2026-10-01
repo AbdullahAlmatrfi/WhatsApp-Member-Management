@@ -4,11 +4,28 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "./supabase/client";
 
+/** Why a sign-in failed, so the UI can tell the truth instead of always
+ * blaming the password. */
+export type AuthFailure = "credentials" | "connection";
+export type SignInResult = { ok: true } | { ok: false; reason: AuthFailure };
+
+/** Bad email/password → "credentials"; anything else (offline, timeout,
+ * paused project, server error) → "connection". Pure, so it's unit-testable. */
+export function classifyAuthError(
+  error: { status?: number | null; code?: string | null } | null | undefined
+): AuthFailure {
+  if (!error) return "connection";
+  const credentialStatus =
+    error.status === 400 || error.status === 401 || error.status === 422;
+  if (error.code === "invalid_credentials" || credentialStatus) return "credentials";
+  return "connection";
+}
+
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error?: string }>;
+  signIn: (email: string, password: string) => Promise<SignInResult>;
   signOut: () => Promise<void>;
 }
 
@@ -34,9 +51,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message };
+  const signIn = async (email: string, password: string): Promise<SignInResult> => {
+    if (!isSupabaseConfigured) return { ok: false, reason: "connection" };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (!error) return { ok: true };
+      return { ok: false, reason: classifyAuthError(error) };
+    } catch {
+      // Network failure / timeout throws rather than returning an error.
+      return { ok: false, reason: "connection" };
+    }
   };
 
   const signOut = async () => {
