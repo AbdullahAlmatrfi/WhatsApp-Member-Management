@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import { Settings2, Send, LogOut, Loader2 } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
@@ -56,6 +56,21 @@ export default function Home() {
   // session can never write into the next user's list.
   const userIdRef = useRef<string | undefined>(undefined);
 
+  // A background refresh must never clobber an in-flight optimistic write, and
+  // it pauses while the broadcast panel is open. These refs are read inside the
+  // stable `refreshMembers` callback (which can't see state directly).
+  const writesInFlight = useRef(0);
+  // Bumped at the START and END of every write. A refetch captures it before
+  // fetching and discards its result if it changed — this catches a write that
+  // both started AND finished while the fetch was in flight (which would
+  // otherwise leave writesInFlight back at 0 and let stale rows win).
+  const writeEpoch = useRef(0);
+  const refreshing = useRef(false); // single-flight: no overlapping refetches
+  const panelOpenRef = useRef(false);
+  useEffect(() => {
+    panelOpenRef.current = showBroadcast;
+  }, [showBroadcast]);
+
   // Single hide-timer: a newer toast must get its full 3s, so the previous
   // timer is cleared before a new one starts (and on unmount).
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -107,6 +122,46 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Background refresh so two staff on different devices don't drift apart.
+  // Guards: never while a write is in flight (would clobber the optimistic
+  // update), never while the broadcast panel is open, and not while the tab is
+  // hidden (saves egress on the free tier). Failures are silent — the current
+  // list just stays put.
+  const refreshMembers = useCallback(async () => {
+    const uid = userIdRef.current;
+    if (!uid || writesInFlight.current > 0 || panelOpenRef.current || refreshing.current) return;
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+    const epoch = writeEpoch.current;
+    refreshing.current = true;
+    try {
+      const rows = await fetchMembers();
+      // Drop the result if the user switched, a write is in flight, or any write
+      // started/finished while we were fetching (epoch changed).
+      if (userIdRef.current !== uid || writesInFlight.current > 0 || writeEpoch.current !== epoch) {
+        return;
+      }
+      setMembers(rows);
+    } catch {
+      // Silent: a failed background refresh keeps what's on screen.
+    } finally {
+      refreshing.current = false;
+    }
+  }, []);
+
+  // Refresh on return-to-tab and every 90s (both self-guarded above).
+  useEffect(() => {
+    if (!userId) return;
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshMembers();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const id = setInterval(refreshMembers, 90_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      clearInterval(id);
+    };
+  }, [userId, refreshMembers]);
+
   // "Sent" is a column on each member now (single source of truth).
   const sentIds = new Set(members.filter((m) => m.sent).map((m) => m.id));
 
@@ -116,6 +171,8 @@ export default function Home() {
     if (!previous) return;
     const previousSent = previous.sent;
     setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: true } : m)));
+    writesInFlight.current++;
+    writeEpoch.current++;
     try {
       const applied = await setMemberSent(id, true);
       if (userIdRef.current !== uid) return;
@@ -129,6 +186,9 @@ export default function Home() {
       if (userIdRef.current !== uid) return;
       setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));
       toast(t.saveFailed, "error");
+    } finally {
+      writesInFlight.current--;
+      writeEpoch.current++;
     }
   };
 
@@ -136,12 +196,17 @@ export default function Home() {
     const uid = userIdRef.current;
     const wasSentIds = new Set(sentIds);
     setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
+    writesInFlight.current++;
+    writeEpoch.current++;
     try {
       await resetAllSent();
     } catch {
       if (userIdRef.current !== uid) return;
       setMembers((prev) => prev.map((m) => (wasSentIds.has(m.id) ? { ...m, sent: true } : m)));
       toast(t.saveFailed, "error");
+    } finally {
+      writesInFlight.current--;
+      writeEpoch.current++;
     }
   };
 
@@ -154,6 +219,8 @@ export default function Home() {
       toast(t.numberExists, "error");
       return false;
     }
+    writesInFlight.current++;
+    writeEpoch.current++;
     try {
       const created = await insertMember(name, fullPhone);
       if (userIdRef.current !== uid) return false;
@@ -167,6 +234,9 @@ export default function Home() {
       else if (code === "23514") toast(t.phoneInvalid, "error");
       else toast(t.saveFailed, "error");
       return false;
+    } finally {
+      writesInFlight.current--;
+      writeEpoch.current++;
     }
   };
 
@@ -180,6 +250,8 @@ export default function Home() {
     const originalIndex = members.findIndex((m) => m.id === target.id);
     setDeleteTarget(null);
     setMembers((prev) => prev.filter((m) => m.id !== target.id));
+    writesInFlight.current++;
+    writeEpoch.current++;
     try {
       await deleteMemberById(target.id);
       toast(t.memberDeleted);
@@ -192,6 +264,9 @@ export default function Home() {
         return next;
       });
       toast(t.saveFailed, "error");
+    } finally {
+      writesInFlight.current--;
+      writeEpoch.current++;
     }
   };
 
@@ -242,7 +317,12 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setShowBroadcast(true)}
+              onClick={() => {
+                // Pull a fresh list just before broadcasting so you don't
+                // message a stale set (runs before the panel opens).
+                refreshMembers();
+                setShowBroadcast(true);
+              }}
               className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
               aria-label={t.broadcast}
             >
