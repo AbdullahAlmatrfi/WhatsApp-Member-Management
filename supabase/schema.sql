@@ -82,6 +82,11 @@ begin
   end if;
 end $do$;
 
+-- Fail closed: any profile row created outside the trigger (e.g. a manual
+-- dashboard insert) must default to 'pending', not 'staff'. `create table if
+-- not exists` won't change an existing table's default, so set it explicitly.
+alter table public.profiles alter column role set default 'pending';
+
 -- ---------- SETTINGS (single row of app config) ---------------------
 create table if not exists public.settings (
   id                 int primary key default 1,
@@ -162,10 +167,14 @@ drop policy if exists profiles_self_read on public.profiles;
 create policy profiles_self_read on public.profiles
   for select to authenticated using (auth.uid() = id);
 
--- settings: everyone logged-in can read; only an admin can change
+-- settings: only approved (admin/staff) accounts can read; only an admin changes.
+-- (was using (true): a 'pending' self-signup could read auto_delete_hours. The
+--  app reads this for the "leaving soon" tag, which only approved users see.)
 drop policy if exists settings_read on public.settings;
 create policy settings_read on public.settings
-  for select to authenticated using (true);
+  for select to authenticated
+  using (exists (select 1 from public.profiles p
+                 where p.id = (select auth.uid()) and p.role in ('admin','staff')));
 
 drop policy if exists settings_admin_update on public.settings;
 create policy settings_admin_update on public.settings
