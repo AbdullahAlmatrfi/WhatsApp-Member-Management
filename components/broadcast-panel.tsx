@@ -133,11 +133,25 @@ export function BroadcastPanel({
         lastAdvanceAt.current = 0;
         return;
       }
+      // Sever window.opener: a named tab can't use "noopener" (that forces a new
+      // tab and breaks reuse), so null it by hand to stop reverse-tabnabbing.
+      try {
+        win.opener = null;
+      } catch {
+        /* cross-origin handle may refuse — the target is trusted WhatsApp Web */
+      }
     } else {
       // Desktop scheme may legitimately return null, so we don't gate on it.
       window.open(`whatsapp://send?phone=${m.phone}&text=${text}`, "_blank", "noopener,noreferrer");
     }
     onMarkSent(m.id);
+    // Drop them from the selection so an aborted-then-restarted run never
+    // re-messages someone already contacted.
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(m.id);
+      return next;
+    });
     setSentCount((c) => c + 1);
     setQi((i) => i + 1);
   };
@@ -405,6 +419,9 @@ export function BroadcastPanel({
                 <div className="flex gap-2">
                   <button
                     onClick={skip}
+                    onKeyDown={(e) => {
+                      if (e.repeat) e.preventDefault(); // ignore held-Enter auto-repeat
+                    }}
                     className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
                   >
                     {t.skip}
@@ -412,6 +429,9 @@ export function BroadcastPanel({
                   <button
                     ref={sendRef}
                     onClick={() => openChat(current)}
+                    onKeyDown={(e) => {
+                      if (e.repeat) e.preventDefault(); // ignore held-Enter auto-repeat
+                    }}
                     className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
                   >
                     <Send className="h-4 w-4" />

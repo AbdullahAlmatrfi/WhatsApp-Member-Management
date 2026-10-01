@@ -70,6 +70,7 @@ const translations = {
     loadingApp: "Loading…",
     loadingMembers: "Loading members…",
     loadFailed: "Couldn't load members — nothing was lost. Check your connection and try again.",
+    retry: "Try again",
     saveFailed: "Couldn't save — try again",
     // Shown when the app is deployed without its database keys
     configTitle: "Setup needed",
@@ -180,6 +181,7 @@ const translations = {
     loadingApp: "جارٍ التحميل…",
     loadingMembers: "جارٍ تحميل الأعضاء…",
     loadFailed: "تعذّر تحميل الأعضاء — لم يُفقد أي شيء. تحقق من اتصالك وحاول مرة أخرى.",
+    retry: "إعادة المحاولة",
     saveFailed: "تعذّر الحفظ — حاول مرة أخرى",
     // Shown when the app is deployed without its database keys
     configTitle: "يلزم الإعداد",
