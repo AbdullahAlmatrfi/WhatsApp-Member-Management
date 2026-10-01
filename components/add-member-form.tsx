@@ -3,24 +3,11 @@
 import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/translations";
+import { sanitizePhoneInput, isValidSaudiMobile } from "@/lib/phone";
 
 interface AddMemberFormProps {
   /** Resolves true only when the member was actually saved. */
   onAddMember: (name: string, phone: string) => Promise<boolean>;
-}
-
-// Saudi mobile, national format: 9 digits starting with 5 (the app prepends 966).
-const PHONE_PATTERN = /^5\d{8}$/;
-
-// Arabic-Indic (U+0660–0669) and Persian (U+06F0–06F9) digits -> ASCII, then keep digits only.
-function sanitizePhone(value: string): string {
-  return value
-    .replace(/[٠-٩۰-۹]/g, (d) => {
-      const code = d.charCodeAt(0);
-      return String(code >= 0x06f0 ? code - 0x06f0 : code - 0x0660);
-    })
-    .replace(/\D/g, "")
-    .slice(0, 9);
 }
 
 export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
@@ -34,7 +21,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
     e.preventDefault();
     const trimmedName = name.trim();
     if (isAdding || !phone || !trimmedName) return;
-    if (!PHONE_PATTERN.test(phone)) {
+    if (!isValidSaudiMobile(phone)) {
       setPhoneError(true);
       return;
     }
@@ -71,7 +58,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
               type="tel"
               value={phone}
               onChange={(e) => {
-                setPhone(sanitizePhone(e.target.value));
+                setPhone(sanitizePhoneInput(e.target.value));
                 setPhoneError(false);
               }}
               placeholder={t.phonePlaceholder}
