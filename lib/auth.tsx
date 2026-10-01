@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
-import { supabase } from "./supabase/client";
+import { supabase, isSupabaseConfigured } from "./supabase/client";
 
 interface AuthContextType {
   session: Session | null;
@@ -19,6 +19,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Unconfigured: don't fire a doomed request at the placeholder host — just
+    // stop loading so the app can show the "setup needed" screen.
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     supabase.auth
       .getSession()
       .then(({ data }) => setSession(data.session))

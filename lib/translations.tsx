@@ -70,6 +70,9 @@ const translations = {
     loadingMembers: "Loading members…",
     loadFailed: "Couldn't reach the database",
     saveFailed: "Couldn't save — try again",
+    // Shown when the app is deployed without its database keys
+    configTitle: "Setup needed",
+    configBody: "The app isn't connected to its database yet. Add the database keys and reload the page.",
     // Broadcast
     broadcast: "Broadcast",
     broadcastSub: "Message many members at once",
@@ -173,6 +176,9 @@ const translations = {
     loadingMembers: "جارٍ تحميل الأعضاء…",
     loadFailed: "تعذّر الوصول إلى قاعدة البيانات",
     saveFailed: "تعذّر الحفظ — حاول مرة أخرى",
+    // Shown when the app is deployed without its database keys
+    configTitle: "يلزم الإعداد",
+    configBody: "التطبيق غير متصل بقاعدة البيانات بعد. أضف مفاتيح قاعدة البيانات وأعد تحميل الصفحة.",
     // Broadcast
     broadcast: "إرسال جماعي",
     broadcastSub: "أرسل رسالة لعدة أعضاء دفعة واحدة",

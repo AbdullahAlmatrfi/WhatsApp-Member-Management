@@ -22,6 +22,7 @@ import {
   resetAllSent,
 } from "@/lib/members-api";
 import { toStoredPhone } from "@/lib/phone";
+import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 const DEFAULT_RETENTION_HOURS = 72;
 
@@ -203,6 +204,21 @@ export default function Home() {
   };
 
   // ---- gates ----
+  // Misconfigured deploy (missing DB keys): a friendly message, never a blank
+  // white page or an infinite spinner.
+  if (!isSupabaseConfigured) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+        <div className="max-w-md rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
+            <Settings2 className="h-6 w-6 text-primary" />
+          </div>
+          <h1 className="mb-2 text-xl font-semibold text-foreground">{t.configTitle}</h1>
+          <p className="text-sm text-muted-foreground">{t.configBody}</p>
+        </div>
+      </main>
+    );
+  }
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
