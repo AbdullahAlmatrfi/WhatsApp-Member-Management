@@ -43,7 +43,7 @@ export function MembersList({
   );
 
   return (
-    <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-lg backdrop-blur-xl transition-colors duration-300">
+    <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg backdrop-blur-xl sm:p-6 transition-colors duration-300">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">

@@ -47,7 +47,14 @@ export function toStoredPhone(national: string): string {
 export function sanitizePhoneInput(raw: string): string {
   const parsed = parseSaudiMobile(raw);
   if (parsed) return parsed;
-  return toAsciiDigits(raw).replace(/\D/g, "").slice(0, 9);
+  // Fallback for a partial number mid-typing. Strip a country-code / trunk
+  // prefix BEFORE capping at 9 digits, so typing "+966 5…" by hand doesn't get
+  // stuck at "966551234" and never reach a valid national number.
+  let d = toAsciiDigits(raw).replace(/\D/g, "");
+  if (d.startsWith("00966")) d = d.slice(5);
+  else if (d.startsWith("966")) d = d.slice(3);
+  if (d.length === 10 && d.startsWith("0")) d = d.slice(1);
+  return d.slice(0, 9);
 }
 
 /**

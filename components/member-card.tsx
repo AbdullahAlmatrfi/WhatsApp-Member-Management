@@ -38,14 +38,15 @@ export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppC
   const formattedPhone = `+${member.phone.slice(0, 3)} ${member.phone.slice(3, 5)} ${member.phone.slice(5, 8)} ${member.phone.slice(8)}`;
 
   return (
-    <div className="group relative flex items-center gap-4 rounded-2xl border border-border/50 bg-secondary/50 p-4 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary">
+    <div className="group relative flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/50 p-3 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 sm:gap-4 sm:p-4">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:h-12 sm:w-12">
         {initials}
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="truncate font-semibold text-foreground">{member.name}</p>
-        <p className="text-sm text-muted-foreground">{formattedPhone}</p>
+        <p className="truncate font-semibold text-foreground" title={member.name}>{member.name}</p>
+        {/* dir=ltr so the "+966 …" number keeps its order in the Arabic (RTL) UI */}
+        <p className="truncate text-sm text-muted-foreground" dir="ltr">{formattedPhone}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span
             className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -71,7 +72,7 @@ export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppC
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <button
           onClick={onWhatsAppClick}
           className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-all duration-200 hover:brightness-110 hover:scale-105 active:scale-95"
