@@ -1,0 +1,13 @@
+# Netlify deploy config for GymConnect (Next.js app).
+# Netlify auto-detects Next.js, but pinning this avoids surprises.
+[build]
+  command = "npm run build"
+
+[build.environment]
+  # Next 16 needs a modern Node. Netlify's default can lag, so pin it.
+  NODE_VERSION = "20"
+
+# The official Next.js runtime on Netlify (serverless functions + routing).
+# Netlify installs this automatically from npm when it's listed here.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
