@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Settings2, Send, LogOut, Loader2, ShieldCheck } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
@@ -38,9 +39,26 @@ export interface Member {
   createdAt: string;
 }
 
+/** Session flag: an admin explicitly switched to the staff view, so `/` should
+ * NOT bounce them back to the control panel. Read synchronously on first render
+ * so a chosen staff view never flashes a redirect. Cleared on sign-out. */
+const STAFF_VIEW_KEY = "gc_staff_view";
+
 export default function Home() {
   const { t, waPreference } = useApp();
   const { session, loading: authLoading, role, roleResolved, roleError, refreshRole, signOut } = useAuth();
+  const router = useRouter();
+
+  // Admins land on the control panel by default; this is true only when they've
+  // chosen the staff view this session.
+  const [staffView] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return sessionStorage.getItem(STAFF_VIEW_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const [members, setMembers] = useState<Member[]>([]);
   const [loadingMembers, setLoadingMembers] = useState(true);
@@ -74,6 +92,14 @@ export default function Home() {
   useEffect(() => {
     panelOpenRef.current = showBroadcast;
   }, [showBroadcast]);
+
+  // Make the control panel the admin's landing page. Only redirect once the role
+  // is actually known as admin, and not when they've chosen the staff view.
+  useEffect(() => {
+    if (role === "admin" && !staffView) {
+      router.replace("/admin");
+    }
+  }, [role, staffView, router]);
   // Latest member count + role refresher, read inside the stable refreshMembers.
   const membersCountRef = useRef(0);
   membersCountRef.current = members.length;
@@ -415,6 +441,16 @@ export default function Home() {
   }
   // Signed in but not approved (pending / no profile / revoked) → friendly gate.
   if (!isApprovedRole(role)) return <PendingGate />;
+
+  // Admin who hasn't chosen the staff view → hold a spinner while the effect
+  // above redirects to the control panel (their landing page).
+  if (role === "admin" && !staffView) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">

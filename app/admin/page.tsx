@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Loader2, ShieldCheck, Users, Settings2, Check, UserMinus } from "lucide-react";
 import {
   Dialog,
@@ -27,6 +28,16 @@ const WINDOWS = [7, 24, 48, 72] as const;
 export default function AdminPage() {
   const { t } = useApp();
   const { session, loading: authLoading, role, roleResolved, roleError, refreshRole, signOut, user } = useAuth();
+  const router = useRouter();
+
+  // Switch to the staff view and remember it for this session, so the main app
+  // doesn't immediately redirect the admin back here.
+  const goStaffView = () => {
+    try {
+      sessionStorage.setItem("gc_staff_view", "1");
+    } catch {}
+    router.push("/");
+  };
 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,13 +177,13 @@ export default function AdminPage() {
               <p className="truncate text-sm text-muted-foreground">{t.adminSub}</p>
             </div>
           </div>
-          <Link
-            href="/"
+          <button
+            onClick={goStaffView}
             className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.backToApp}</span>
-          </Link>
+            <span className="hidden sm:inline">{t.staffView}</span>
+          </button>
         </header>
 
         {loading ? (

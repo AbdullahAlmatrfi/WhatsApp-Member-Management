@@ -141,6 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    // Forget any admin "staff view" choice so the next login lands on the
+    // control panel again (and the next person on a shared PC starts clean).
+    try {
+      sessionStorage.removeItem("gc_staff_view");
+    } catch {}
     // On a flaky network the server logout can fail and auth-js then KEEPS the
     // session — dangerous on a shared reception PC. Force a local clear so the
     // next person never inherits the session.
