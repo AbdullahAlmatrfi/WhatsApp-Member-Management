@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Settings2, Send, LogOut, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Settings2, Send, LogOut, Loader2, ShieldCheck } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
 import { Toast, type ToastVariant } from "@/components/toast";
@@ -440,6 +441,16 @@ export default function Home() {
               <Send className="h-5 w-5" />
               <span className="hidden sm:inline">{t.broadcast}</span>
             </button>
+            {role === "admin" && (
+              <Link
+                href="/admin"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"
+                aria-label={t.adminTitle}
+                title={t.adminTitle}
+              >
+                <ShieldCheck className="h-6 w-6" />
+              </Link>
+            )}
             <button
               onClick={() => setShowSettings(true)}
               className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"

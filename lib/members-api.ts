@@ -120,3 +120,48 @@ export async function fetchMyRole(userId: string): Promise<Role | null> {
 export function isApprovedRole(role: Role | null | undefined): boolean {
   return role === "staff" || role === "admin";
 }
+
+// ---- v2 Admin Console: user management + settings -------------------------
+
+export type Account = { id: string; email: string | null; role: Role; createdAt: string };
+
+/** All accounts (admin only — RLS `profiles_admin_read` returns nothing to
+ * non-admins). Newest first. */
+export async function fetchAllAccounts(): Promise<Account[]> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,email,role,created_at")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    email: r.email ?? null,
+    role: r.role as Role,
+    createdAt: r.created_at,
+  }));
+}
+
+/** Change an account's role (approve → staff, revoke → pending, etc). Admin-only
+ * via RLS; the DB guard blocks removing the last admin or self-demotion (those
+ * surface as a thrown error). Returns whether a row actually changed. */
+export async function setUserRole(id: string, role: Role): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ role })
+    .eq("id", id)
+    .select("id,role");
+  if (error) throw error;
+  return (data ?? []).some((r) => r.id === id && r.role === role);
+}
+
+/** Admin sets the auto-delete window (hours). RLS `settings_admin_update` +
+ * the CHECK (7/24/48/72) enforce it server-side. */
+export async function updateAutoDeleteHours(hours: number): Promise<boolean> {
+  const { data, error } = await supabase
+    .from("settings")
+    .update({ auto_delete_hours: hours })
+    .eq("id", 1)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
