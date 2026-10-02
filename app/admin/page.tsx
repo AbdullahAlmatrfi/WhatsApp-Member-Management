@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, ShieldCheck, Users, Settings2, Check, UserMinus } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  ShieldCheck,
+  Users,
+  Settings2,
+  Check,
+  Trash2,
+  KeyRound,
+  UserPlus,
+  Copy,
+  X,
+  MessageCircle,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -22,8 +35,18 @@ import {
   getDbErrorCode,
   type Account,
 } from "@/lib/members-api";
+import {
+  createStaffAccount,
+  deleteStaffAccount,
+  resetStaffPassword,
+  generatePassword,
+} from "@/lib/admin-users";
 
 const WINDOWS = [7, 24, 48, 72] as const;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+type ActionKind = "approve" | "delete" | "reset";
+type Credentials = { email: string; password: string; title: string };
 
 export default function AdminPage() {
   const { t } = useApp();
@@ -42,7 +65,18 @@ export default function AdminPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [hours, setHours] = useState<number | null>(null);
-  const [confirm, setConfirm] = useState<{ acc: Account; next: "staff" | "pending" } | null>(null);
+
+  // Add-staff form
+  const [newEmail, setNewEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [creating, setCreating] = useState(false);
+
+  // Confirm dialog (approve / delete / reset) + the credentials hand-off card.
+  const [action, setAction] = useState<{ acc: Account; kind: ActionKind } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [cred, setCred] = useState<Credentials | null>(null);
+  const [copied, setCopied] = useState(false);
+
   const [toastMsg, setToastMsg] = useState("");
   const [toastVariant, setToastVariant] = useState<ToastVariant>("success");
   const [showToast, setShowToast] = useState(false);
@@ -56,6 +90,20 @@ export default function AdminPage() {
     toastTimer.current = setTimeout(() => setShowToast(false), 3000);
   };
   useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+  // Map a server error code to a friendly, localized message.
+  const errText = (code: string) =>
+    code === "email_exists"
+      ? t.errEmailExists
+      : code === "invalid_email"
+        ? t.errInvalidEmail
+        : code === "invalid_password"
+          ? t.errInvalidPassword
+          : code === "server_not_configured"
+            ? t.errServerConfig
+            : code === "forbidden" || code === "unauthorized"
+              ? t.errForbidden
+              : t.saveFailed;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,22 +123,67 @@ export default function AdminPage() {
     if (role === "admin") load();
   }, [role, load]);
 
-  const applyRole = async () => {
-    if (!confirm) return;
-    const { acc, next } = confirm;
-    setConfirm(null);
+  // ---- create a new staff login ----
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    const email = newEmail.trim().toLowerCase();
+    const pwd = newPassword;
+    if (!EMAIL_RE.test(email)) {
+      toast(t.errInvalidEmail, "error");
+      return;
+    }
+    if (pwd.length < 8) {
+      toast(t.errInvalidPassword, "error");
+      return;
+    }
+    setCreating(true);
+    const res = await createStaffAccount(email, pwd);
+    setCreating(false);
+    if (!res.ok) {
+      toast(errText(res.error), "error");
+      return;
+    }
+    setNewEmail("");
+    setNewPassword("");
+    setCred({ email, password: pwd, title: t.credCreatedTitle });
+    toast(t.staffCreatedToast);
+    load();
+  };
+
+  // ---- approve / delete / reset (from the confirm dialog) ----
+  const runAction = async () => {
+    if (!action) return;
+    const { acc, kind } = action;
+    setBusy(true);
     try {
-      const ok = await setUserRole(acc.id, next);
-      if (!ok) {
-        toast(t.saveFailed, "error");
-        return;
+      if (kind === "approve") {
+        const ok = await setUserRole(acc.id, "staff");
+        if (!ok) toast(t.saveFailed, "error");
+        else {
+          setAccounts((prev) => prev.map((a) => (a.id === acc.id ? { ...a, role: "staff" } : a)));
+          toast(t.approved);
+        }
+      } else if (kind === "delete") {
+        const res = await deleteStaffAccount(acc.id);
+        if (!res.ok) toast(errText(res.error), "error");
+        else {
+          setAccounts((prev) => prev.filter((a) => a.id !== acc.id));
+          toast(t.staffDeletedToast);
+        }
+      } else {
+        const pwd = generatePassword();
+        const res = await resetStaffPassword(acc.id, pwd);
+        if (!res.ok) toast(errText(res.error), "error");
+        else {
+          setCred({ email: acc.email || "", password: pwd, title: t.credResetTitle });
+          toast(t.passwordResetToast);
+        }
       }
-      setAccounts((prev) => prev.map((a) => (a.id === acc.id ? { ...a, role: next } : a)));
-      toast(next === "staff" ? t.approved : t.revoked);
     } catch (e) {
-      // DB guards (last admin / self-demotion) raise with errcode P0001 —
-      // match on the code, not the message wording.
       toast(getDbErrorCode(e) === "P0001" ? t.adminGuard : t.saveFailed, "error");
+    } finally {
+      setBusy(false);
+      setAction(null);
     }
   };
 
@@ -105,6 +198,21 @@ export default function AdminPage() {
       setHours(prev);
       toast(t.saveFailed, "error");
     }
+  };
+
+  // ---- credentials hand-off helpers ----
+  const credText = cred ? `${t.credEmailLabel}: ${cred.email}\n${t.credPasswordLabel}: ${cred.password}` : "";
+  const copyCred = async () => {
+    try {
+      await navigator.clipboard.writeText(credText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast(t.saveFailed, "error");
+    }
+  };
+  const shareWhatsApp = () => {
+    window.open(`https://wa.me/?text=${encodeURIComponent(credText)}`, "_blank", "noopener,noreferrer");
   };
 
   // ---- gates ----
@@ -164,6 +272,13 @@ export default function AdminPage() {
         : "bg-muted text-muted-foreground";
   const roleLabel = (r: string) => (r === "admin" ? t.roleAdmin : r === "staff" ? t.roleStaff : t.rolePending);
 
+  const dialogTitle =
+    action?.kind === "approve" ? t.approveTitle : action?.kind === "delete" ? t.deleteStaffTitle : t.resetTitle;
+  const dialogBody =
+    action?.kind === "approve" ? t.approveBody : action?.kind === "delete" ? t.deleteStaffBody : t.resetBody;
+  const dialogConfirm =
+    action?.kind === "approve" ? t.approve : action?.kind === "delete" ? t.deleteAccount : t.resetPwd;
+
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -222,7 +337,71 @@ export default function AdminPage() {
               </div>
             </section>
 
-            {/* User management */}
+            {/* Add staff */}
+            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <UserPlus className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-foreground">{t.addStaffTitle}</h2>
+                  <p className="text-xs text-muted-foreground">{t.addStaffSub}</p>
+                </div>
+              </div>
+              <form onSubmit={handleCreate} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{t.addEmail}</label>
+                  <input
+                    type="email"
+                    value={newEmail}
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    placeholder={t.addEmailPlaceholder}
+                    autoComplete="off"
+                    dir="ltr"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{t.addPassword}</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      autoComplete="off"
+                      dir="ltr"
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-sm text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewPassword(generatePassword())}
+                      className="shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                    >
+                      {t.generateBtn}
+                    </button>
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={creating}
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
+                >
+                  {creating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t.creatingAccount}
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" />
+                      {t.createAccount}
+                    </>
+                  )}
+                </button>
+              </form>
+            </section>
+
+            {/* Staff accounts list */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
@@ -256,23 +435,37 @@ export default function AdminPage() {
                             {roleLabel(a.role)}
                           </span>
                         </div>
-                        {a.role === "pending" && (
-                          <button
-                            onClick={() => setConfirm({ acc: a, next: "staff" })}
-                            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground transition-all hover:brightness-110"
-                          >
-                            <Check className="h-4 w-4" />
-                            {t.approve}
-                          </button>
-                        )}
-                        {a.role === "staff" && (
-                          <button
-                            onClick={() => setConfirm({ acc: a, next: "pending" })}
-                            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-semibold text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                          >
-                            <UserMinus className="h-4 w-4" />
-                            {t.revoke}
-                          </button>
+
+                        {/* The admin can't act on their own row here. */}
+                        {!isSelf && a.role !== "admin" && (
+                          <div className="flex shrink-0 items-center gap-1.5">
+                            {a.role === "pending" && (
+                              <button
+                                onClick={() => setAction({ acc: a, kind: "approve" })}
+                                title={t.approve}
+                                className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition-all hover:brightness-110"
+                              >
+                                <Check className="h-4 w-4" />
+                                <span className="hidden sm:inline">{t.approve}</span>
+                              </button>
+                            )}
+                            {a.role === "staff" && (
+                              <button
+                                onClick={() => setAction({ acc: a, kind: "reset" })}
+                                title={t.resetPwd}
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                              >
+                                <KeyRound className="h-4 w-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setAction({ acc: a, kind: "delete" })}
+                              title={t.deleteAccount}
+                              className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         )}
                       </div>
                     );
@@ -284,32 +477,88 @@ export default function AdminPage() {
         )}
       </div>
 
-      {/* Approve / revoke confirm */}
-      <Dialog open={confirm !== null} onOpenChange={(o) => !o && setConfirm(null)}>
+      {/* Approve / delete / reset confirm */}
+      <Dialog open={action !== null} onOpenChange={(o) => !o && !busy && setAction(null)}>
         <DialogContent
           aria-modal="true"
           showCloseButton={false}
           className="gap-0 rounded-2xl border-border bg-card p-6 text-center sm:max-w-sm"
         >
-          <DialogTitle className="mb-1 leading-7 text-foreground">
-            {confirm?.next === "staff" ? t.approveTitle : t.revokeTitle}
-          </DialogTitle>
-          <DialogDescription className="mb-5">
-            {confirm?.next === "staff" ? t.approveBody : t.revokeBody}
-          </DialogDescription>
+          <DialogTitle className="mb-1 leading-7 text-foreground">{dialogTitle}</DialogTitle>
+          <DialogDescription className="mb-5">{dialogBody}</DialogDescription>
           <div className="flex gap-2">
             <button
-              onClick={() => setConfirm(null)}
+              onClick={() => setAction(null)}
+              disabled={busy}
               autoFocus
-              className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+              className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
             >
               {t.cancel}
             </button>
             <button
-              onClick={applyRole}
-              className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+              onClick={runAction}
+              disabled={busy}
+              className={`flex flex-1 items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold transition-all disabled:opacity-60 ${
+                action?.kind === "delete"
+                  ? "bg-destructive text-destructive-foreground hover:brightness-110"
+                  : "bg-primary text-primary-foreground hover:brightness-110"
+              }`}
             >
-              {confirm?.next === "staff" ? t.approve : t.revoke}
+              {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+              {dialogConfirm}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Credentials hand-off card (after create / reset) */}
+      <Dialog open={cred !== null} onOpenChange={(o) => !o && setCred(null)}>
+        <DialogContent
+          aria-modal="true"
+          showCloseButton={false}
+          className="gap-0 rounded-2xl border-border bg-card p-6 sm:max-w-sm"
+        >
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <DialogTitle className="leading-7 text-foreground">{cred?.title}</DialogTitle>
+            <button
+              onClick={() => setCred(null)}
+              aria-label={t.doneBtn}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <DialogDescription className="mb-4">{t.credBody}</DialogDescription>
+
+          <div className="space-y-2">
+            <div className="rounded-lg border border-border bg-secondary/40 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">{t.credEmailLabel}</p>
+              <p className="mt-0.5 truncate font-mono text-sm text-foreground" dir="ltr">
+                {cred?.email}
+              </p>
+            </div>
+            <div className="rounded-lg border border-border bg-secondary/40 p-3">
+              <p className="text-[11px] font-medium text-muted-foreground">{t.credPasswordLabel}</p>
+              <p className="mt-0.5 truncate font-mono text-sm text-foreground" dir="ltr">
+                {cred?.password}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={copyCred}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+            >
+              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              {copied ? t.copiedBtn : t.copyBtn}
+            </button>
+            <button
+              onClick={shareWhatsApp}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {t.shareWhatsapp}
             </button>
           </div>
         </DialogContent>
