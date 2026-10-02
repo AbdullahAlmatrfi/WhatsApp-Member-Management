@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Loader2 } from "lucide-react";
 import { useApp } from "@/lib/translations";
 import { sanitizePhoneInput, isValidSaudiMobile } from "@/lib/phone";
+import { cleanName, isValidName } from "@/lib/name";
 
 interface AddMemberFormProps {
   /** Resolves true only when the member was actually saved. */
@@ -19,8 +20,9 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmedName = name.trim();
-    if (isAdding || !phone || !trimmedName) return;
+    // A tiny label like "1" is fine; only a blank / invisible name is rejected.
+    const finalName = cleanName(name);
+    if (isAdding || !phone || !finalName) return;
     if (!isValidSaudiMobile(phone)) {
       setPhoneError(true);
       return;
@@ -28,7 +30,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
     setIsAdding(true);
     try {
-      const saved = await onAddMember(trimmedName, phone);
+      const saved = await onAddMember(finalName, phone);
       // Keep what the user typed unless the save was confirmed.
       if (saved) {
         setPhone("");
@@ -50,6 +52,18 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
+          {/* Name first, then phone — the order reception fills them in. A short
+              label (even "1") is accepted. */}
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t.namePlaceholder}
+            aria-label={t.memberName}
+            maxLength={100}
+            autoComplete="off"
+            className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
           {/* dir=ltr keeps "+966" on the left and the number in reading order in both EN and AR */}
           <div className="relative" dir="ltr">
             <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4">
@@ -66,18 +80,10 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
               aria-label={t.phoneLabel}
               aria-invalid={phoneError}
               aria-describedby={phoneError ? "phone-error" : undefined}
+              autoComplete="off"
               className="h-12 w-full rounded-xl border border-border bg-input ps-16 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 aria-invalid:border-destructive"
             />
           </div>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t.namePlaceholder}
-            aria-label={t.memberName}
-            maxLength={100}
-            className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
         </div>
 
         {phoneError && (
@@ -88,7 +94,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
         <button
           type="submit"
-          disabled={isAdding || !phone.trim() || !name.trim()}
+          disabled={isAdding || !isValidSaudiMobile(phone) || !isValidName(name)}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {isAdding ? (
