@@ -4,6 +4,7 @@ import { Trash2, Clock } from "lucide-react";
 import type { Member } from "@/app/page";
 import { useApp } from "@/lib/translations";
 import { addedTag } from "@/lib/format";
+import { nameInitials } from "@/lib/name";
 
 interface MemberCardProps {
   member: Member;
@@ -28,12 +29,7 @@ function WhatsAppIcon({ className }: { className?: string }) {
 export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppClick }: MemberCardProps) {
   const { t } = useApp();
   const tag = addedTag(member.createdAt, retentionHours, t);
-  const initials = member.name
-    .split(" ")
-    .map((n) => n[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  const initials = nameInitials(member.name);
 
   const formattedPhone = `+${member.phone.slice(0, 3)} ${member.phone.slice(3, 5)} ${member.phone.slice(5, 8)} ${member.phone.slice(8)}`;
 
