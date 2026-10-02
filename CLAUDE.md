@@ -25,6 +25,15 @@ dark+light · EN/AR. **Data is in-memory (localStorage for prefs only) — nothi
 ## Planned (v2)
 Database + login (admin-only, no public signup) · bulk delete · auto-delete (default 3 days) · deploy.
 
+## Account & visibility model (decided)
+- **Admin creates staff logins** (no public signup, no approval queue) via the admin console → `app/api/admin-users` (server-only, holds the Supabase service_role key; needs `SUPABASE_SERVICE_ROLE_KEY` in Netlify).
+- **One shared staff member pool**: all staff see each other's members (right for a gym front desk).
+- **Admin-private members**: members an admin adds are private to the admin; staff never see them. Admin sees everything. Enforced by `members.admin_private` + RLS (`supabase/schema-v3.sql`).
+- **Identity**: `settings.gym_name` (header title) + `profiles.display_name` (greeting), both admin-set.
+
+## Future enhancements (not built)
+- **Multi-gym / multi-tenant**: admin creates multiple gyms; staff + members scoped per gym; gyms fully isolated from each other. (Owner chose single-gym for now.)
+
 ## Rules
 - **Design:** follow `DESIGN.md` — green (`--primary #10b981`) only, no off-brand colors.
 - **Bilingual:** every user string in `lib/translations.tsx`, EN + AR, use `start/end` (RTL).

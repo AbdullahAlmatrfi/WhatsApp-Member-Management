@@ -18,6 +18,8 @@ import { useAuth } from "@/lib/auth";
 import {
   fetchMembers,
   fetchAutoDeleteHours,
+  fetchGymName,
+  fetchMyDisplayName,
   getDbErrorCode,
   insertMember,
   deleteMemberById,
@@ -45,7 +47,7 @@ export interface Member {
 const STAFF_VIEW_KEY = "gc_staff_view";
 
 export default function Home() {
-  const { t, waPreference } = useApp();
+  const { t, lang, waPreference } = useApp();
   const { session, loading: authLoading, role, roleResolved, roleError, refreshRole, signOut } = useAuth();
   const router = useRouter();
 
@@ -70,6 +72,10 @@ export default function Home() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   // The auto-delete window drives the "leaving soon" tag; default until it loads.
   const [retentionHours, setRetentionHours] = useState(DEFAULT_RETENTION_HOURS);
+
+  // Identity: the gym's name (header title) and this user's friendly name (greeting).
+  const [gymName, setGymName] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
 
   const [toastVariant, setToastVariant] = useState<ToastVariant>("success");
 
@@ -100,6 +106,22 @@ export default function Home() {
       router.replace("/admin");
     }
   }, [role, staffView, router]);
+
+  // Load the gym name + this user's friendly name once approved (cosmetic — a
+  // failure just falls back to the generic title and a nameless greeting).
+  useEffect(() => {
+    if (!userId || !isApprovedRole(role)) return;
+    let active = true;
+    fetchGymName()
+      .then((g) => active && setGymName(g))
+      .catch(() => {});
+    fetchMyDisplayName(userId)
+      .then((n) => active && setDisplayName(n))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [userId, role]);
   // Latest member count + role refresher, read inside the stable refreshMembers.
   const membersCountRef = useRef(0);
   membersCountRef.current = members.length;
@@ -452,6 +474,11 @@ export default function Home() {
     );
   }
 
+  // Time-of-day greeting (device-local; Arabic has no separate afternoon form,
+  // so greetAfternoon already maps to مساء الخير).
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t.greetMorning : hour < 18 ? t.greetAfternoon : t.greetEvening;
+
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
       <div className="mx-auto max-w-2xl space-y-8">
@@ -459,8 +486,18 @@ export default function Home() {
           <div className="flex min-w-0 items-center gap-3">
             <Image src="/logo.png" alt="GymConnect Logo" width={40} height={40} className="shrink-0" />
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold text-foreground sm:text-2xl md:text-3xl">{t.title}</h1>
-              <p className="truncate text-sm text-muted-foreground">{t.subtitle}</p>
+              <h1 className="truncate text-xl font-bold text-foreground sm:text-2xl md:text-3xl">
+                {gymName || t.title}
+              </h1>
+              <p className="truncate text-sm text-muted-foreground" dir="auto">
+                {displayName
+                  ? `${greeting}${lang === "ar" ? "،" : ","} ${displayName}`
+                  : greeting}
+                <span className="text-muted-foreground/70">
+                  {" · "}
+                  {role === "admin" ? t.roleAdmin : t.roleStaffCue}
+                </span>
+              </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">

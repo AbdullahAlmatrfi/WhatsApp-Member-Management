@@ -9,12 +9,13 @@ export type AdminUserResult =
   | { ok: true; id?: string; email?: string }
   | { ok: false; error: string };
 
-type Action = "create" | "delete" | "reset_password";
+type Action = "create" | "delete" | "reset_password" | "set_name";
 type Payload = {
   action: Action;
   email?: string;
   password?: string;
   userId?: string;
+  name?: string;
 };
 
 async function call(payload: Payload): Promise<AdminUserResult> {
@@ -47,9 +48,14 @@ async function call(payload: Payload): Promise<AdminUserResult> {
   return { ok: true, id: json.id, email: json.email };
 }
 
-/** Create a staff login with an admin-set password. */
-export function createStaffAccount(email: string, password: string) {
-  return call({ action: "create", email, password });
+/** Create a staff login with an admin-set password and optional display name. */
+export function createStaffAccount(email: string, password: string, name?: string) {
+  return call({ action: "create", email, password, name });
+}
+
+/** Set (or clear) a staff member's friendly display name. */
+export function setStaffName(userId: string, name: string) {
+  return call({ action: "set_name", userId, name });
 }
 
 /** Permanently delete a staff login. */

@@ -16,6 +16,8 @@ import {
   Copy,
   X,
   MessageCircle,
+  Building2,
+  Pencil,
 } from "lucide-react";
 import {
   Dialog,
@@ -29,6 +31,8 @@ import { Toast, type ToastVariant } from "@/components/toast";
 import {
   fetchAllAccounts,
   fetchAutoDeleteHours,
+  fetchGymName,
+  updateGymName,
   setUserRole,
   updateAutoDeleteHours,
   isApprovedRole,
@@ -39,6 +43,7 @@ import {
   createStaffAccount,
   deleteStaffAccount,
   resetStaffPassword,
+  setStaffName,
   generatePassword,
 } from "@/lib/admin-users";
 
@@ -66,10 +71,20 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [hours, setHours] = useState<number | null>(null);
 
+  // Gym name
+  const [gymName, setGymName] = useState("");
+  const [savingGym, setSavingGym] = useState(false);
+
   // Add-staff form
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+
+  // Edit-name dialog
+  const [editTarget, setEditTarget] = useState<Account | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingName, setSavingName] = useState(false);
 
   // Confirm dialog (approve / delete / reset) + the credentials hand-off card.
   const [action, setAction] = useState<{ acc: Account; kind: ActionKind } | null>(null);
@@ -108,9 +123,14 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [accs, h] = await Promise.all([fetchAllAccounts(), fetchAutoDeleteHours().catch(() => null)]);
+      const [accs, h, g] = await Promise.all([
+        fetchAllAccounts(),
+        fetchAutoDeleteHours().catch(() => null),
+        fetchGymName().catch(() => null),
+      ]);
       setAccounts(accs);
       if (h) setHours(h);
+      setGymName(g ?? "");
     } catch {
       toast(t.loadFailed, "error");
     } finally {
@@ -118,6 +138,34 @@ export default function AdminPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const saveGymName = async () => {
+    setSavingGym(true);
+    try {
+      const ok = await updateGymName(gymName);
+      if (!ok) throw new Error("no row");
+      toast(t.settingSaved);
+    } catch {
+      toast(t.saveFailed, "error");
+    } finally {
+      setSavingGym(false);
+    }
+  };
+
+  const saveEditName = async () => {
+    if (!editTarget) return;
+    setSavingName(true);
+    const res = await setStaffName(editTarget.id, editValue);
+    setSavingName(false);
+    if (!res.ok) {
+      toast(errText(res.error), "error");
+      return;
+    }
+    const clean = editValue.replace(/\s+/g, " ").trim().slice(0, 40) || null;
+    setAccounts((prev) => prev.map((a) => (a.id === editTarget.id ? { ...a, displayName: clean } : a)));
+    setEditTarget(null);
+    toast(t.settingSaved);
+  };
 
   useEffect(() => {
     if (role === "admin") load();
@@ -137,7 +185,7 @@ export default function AdminPage() {
       return;
     }
     setCreating(true);
-    const res = await createStaffAccount(email, pwd);
+    const res = await createStaffAccount(email, pwd, newName);
     setCreating(false);
     if (!res.ok) {
       toast(errText(res.error), "error");
@@ -145,6 +193,7 @@ export default function AdminPage() {
     }
     setNewEmail("");
     setNewPassword("");
+    setNewName("");
     setCred({ email, password: pwd, title: t.credCreatedTitle });
     toast(t.staffCreatedToast);
     load();
@@ -308,6 +357,37 @@ export default function AdminPage() {
           </div>
         ) : (
           <>
+            {/* Gym name */}
+            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-foreground">{t.gymNameTitle}</h2>
+                  <p className="text-xs text-muted-foreground">{t.gymNameDesc}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={gymName}
+                  onChange={(e) => setGymName(e.target.value)}
+                  placeholder={t.gymNamePlaceholder}
+                  maxLength={40}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                />
+                <button
+                  onClick={saveGymName}
+                  disabled={savingGym}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
+                >
+                  {savingGym && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t.saveBtn}
+                </button>
+              </div>
+            </section>
+
             {/* Settings — auto-delete window */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
@@ -349,6 +429,18 @@ export default function AdminPage() {
                 </div>
               </div>
               <form onSubmit={handleCreate} className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-muted-foreground">{t.addName}</label>
+                  <input
+                    type="text"
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder={t.addNamePlaceholder}
+                    autoComplete="off"
+                    maxLength={40}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                  />
+                </div>
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">{t.addEmail}</label>
                   <input
@@ -425,10 +517,15 @@ export default function AdminPage() {
                         className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/40 p-3"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-foreground" dir="ltr">
-                            {a.email || a.id.slice(0, 8)}
+                          <p className="truncate text-sm font-semibold text-foreground">
+                            {a.displayName || <span dir="ltr">{a.email || a.id.slice(0, 8)}</span>}
                             {isSelf && <span className="ms-2 text-xs text-muted-foreground">({t.you})</span>}
                           </p>
+                          {a.displayName && a.email && (
+                            <p className="truncate text-xs text-muted-foreground" dir="ltr">
+                              {a.email}
+                            </p>
+                          )}
                           <span
                             className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${roleBadge(a.role)}`}
                           >
@@ -436,7 +533,19 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        {/* The admin can't act on their own row here. */}
+                        {/* Edit name is available for every account (incl. self). */}
+                        <button
+                          onClick={() => {
+                            setEditTarget(a);
+                            setEditValue(a.displayName ?? "");
+                          }}
+                          title={t.editName}
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+
+                        {/* The admin can't delete/reset their own row here. */}
                         {!isSelf && a.role !== "admin" && (
                           <div className="flex shrink-0 items-center gap-1.5">
                             {a.role === "pending" && (
@@ -559,6 +668,47 @@ export default function AdminPage() {
             >
               <MessageCircle className="h-4 w-4" />
               {t.shareWhatsapp}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit staff name */}
+      <Dialog open={editTarget !== null} onOpenChange={(o) => !o && !savingName && setEditTarget(null)}>
+        <DialogContent
+          aria-modal="true"
+          showCloseButton={false}
+          className="gap-0 rounded-2xl border-border bg-card p-6 sm:max-w-sm"
+        >
+          <DialogTitle className="mb-1 leading-7 text-foreground">{t.editNameTitle}</DialogTitle>
+          <DialogDescription className="mb-4 truncate" dir="ltr">
+            {editTarget?.email}
+          </DialogDescription>
+          <input
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            placeholder={t.addNamePlaceholder}
+            maxLength={40}
+            autoFocus
+            onKeyDown={(e) => e.key === "Enter" && !savingName && saveEditName()}
+            className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={() => setEditTarget(null)}
+              disabled={savingName}
+              className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
+            >
+              {t.cancel}
+            </button>
+            <button
+              onClick={saveEditName}
+              disabled={savingName}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
+            >
+              {savingName && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t.saveBtn}
             </button>
           </div>
         </DialogContent>

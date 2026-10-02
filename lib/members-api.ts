@@ -123,22 +123,65 @@ export function isApprovedRole(role: Role | null | undefined): boolean {
 
 // ---- v2 Admin Console: user management + settings -------------------------
 
-export type Account = { id: string; email: string | null; role: Role; createdAt: string };
+export type Account = {
+  id: string;
+  email: string | null;
+  role: Role;
+  displayName: string | null;
+  createdAt: string;
+};
 
 /** All accounts (admin only — RLS `profiles_admin_read` returns nothing to
  * non-admins). Newest first. */
 export async function fetchAllAccounts(): Promise<Account[]> {
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,email,role,created_at")
+    .select("id,email,role,display_name,created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map((r) => ({
     id: r.id,
     email: r.email ?? null,
     role: r.role as Role,
+    displayName: r.display_name ?? null,
     createdAt: r.created_at,
   }));
+}
+
+/** The signed-in user's own display name (friendly name set by the admin), or
+ * null. Scoped to their own profile row via `profiles_self_read`. */
+export async function fetchMyDisplayName(userId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("display_name")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.display_name ?? null) as string | null;
+}
+
+/** The gym's name (shown across the staff screen). Any approved account may read
+ * it (RLS `settings_read`); null when it hasn't been set yet. */
+export async function fetchGymName(): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("settings")
+    .select("gym_name")
+    .eq("id", 1)
+    .single();
+  if (error) throw error;
+  return (data?.gym_name ?? null) as string | null;
+}
+
+/** Admin sets the gym name (RLS `settings_admin_update` enforces admin-only). */
+export async function updateGymName(name: string): Promise<boolean> {
+  const clean = name.replace(/\s+/g, " ").trim().slice(0, 40);
+  const { data, error } = await supabase
+    .from("settings")
+    .update({ gym_name: clean.length ? clean : null })
+    .eq("id", 1)
+    .select("id");
+  if (error) throw error;
+  return (data ?? []).length > 0;
 }
 
 /** Change an account's role (approve → staff, revoke → pending, etc). Admin-only

@@ -16,12 +16,19 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs"; // needs Node + the secret env var, not the edge
 export const dynamic = "force-dynamic"; // never statically cached
 
-type Action = "create" | "delete" | "reset_password";
-type Body = { action?: Action; email?: string; password?: string; userId?: string };
+type Action = "create" | "delete" | "reset_password" | "set_name";
+type Body = { action?: Action; email?: string; password?: string; userId?: string; name?: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 8;
 const MAX_PASSWORD = 72; // bcrypt hard limit; anything longer is silently truncated
+const MAX_NAME = 40;
+
+/** Clean a display name: trim, collapse spaces, cap length. Empty → null. */
+function cleanName(raw: string | undefined): string | null {
+  const n = (raw ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
+  return n.length ? n : null;
+}
 
 function bad(status: number, error: string) {
   return NextResponse.json({ error }, { status });
@@ -99,7 +106,7 @@ export async function POST(req: Request) {
     // account stays 'pending' (no access) — fails closed, never open.
     const { error: roleErr } = await admin
       .from("profiles")
-      .update({ role: "staff", email })
+      .update({ role: "staff", email, display_name: cleanName(body.name) })
       .eq("id", created.user.id);
     if (roleErr) {
       // Roll back the half-made account so there's no stuck 'pending' login.
@@ -151,6 +158,18 @@ export async function POST(req: Request) {
       password,
     });
     if (resetErr) return bad(400, "reset_failed");
+    return NextResponse.json({ ok: true });
+  }
+
+  // ---------------------------------------------------------------- set_name --
+  if (action === "set_name") {
+    const userId = (body.userId ?? "").trim();
+    if (!userId) return bad(400, "bad_request");
+    const { error: nameErr } = await admin
+      .from("profiles")
+      .update({ display_name: cleanName(body.name) })
+      .eq("id", userId);
+    if (nameErr) return bad(400, "save_failed");
     return NextResponse.json({ ok: true });
   }
 
