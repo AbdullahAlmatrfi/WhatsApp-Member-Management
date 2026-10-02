@@ -40,7 +40,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-border/50 bg-card p-6 shadow-lg backdrop-blur-xl transition-colors duration-300">
+    <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg backdrop-blur-xl sm:p-6 transition-colors duration-300">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
           <Plus className="h-5 w-5 text-primary" />
@@ -50,7 +50,8 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="relative">
+          {/* dir=ltr keeps "+966" on the left and the number in reading order in both EN and AR */}
+          <div className="relative" dir="ltr">
             <div className="pointer-events-none absolute inset-y-0 start-0 flex items-center ps-4">
               <span className="text-muted-foreground">+966</span>
             </div>

@@ -127,7 +127,7 @@ export function BroadcastPanel({
     if (waPreference === "web") {
       // One reused tab (named target) instead of a new tab per member — a 50-person
       // broadcast must not spawn 50 WhatsApp Web tabs.
-      const win = window.open(`https://web.whatsapp.com/send?phone=${m.phone}&text=${text}`, "gymconnect-whatsapp");
+      const win = window.open(`https://web.whatsapp.com/send?phone=${encodeURIComponent(m.phone)}&text=${text}`, "gymconnect-whatsapp");
       if (!win) {
         // Popup blocked: don't mark them messaged or advance — let staff retry.
         lastAdvanceAt.current = 0;
@@ -142,7 +142,7 @@ export function BroadcastPanel({
       }
     } else {
       // Desktop scheme may legitimately return null, so we don't gate on it.
-      window.open(`whatsapp://send?phone=${m.phone}&text=${text}`, "_blank", "noopener,noreferrer");
+      window.open(`whatsapp://send?phone=${encodeURIComponent(m.phone)}&text=${text}`, "_blank", "noopener,noreferrer");
     }
     onMarkSent(m.id);
     // Drop them from the selection so an aborted-then-restarted run never
@@ -327,7 +327,7 @@ export function BroadcastPanel({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
-                          <span className="block truncate text-xs text-muted-foreground">{prettyPhone(m.phone)}</span>
+                          <span className="block truncate text-xs text-muted-foreground" dir="ltr">{prettyPhone(m.phone)}</span>
                         </span>
                         {isSent && (
                           <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -386,7 +386,7 @@ export function BroadcastPanel({
             }}
             onPointerDownOutside={(e) => e.preventDefault()}
             onInteractOutside={(e) => e.preventDefault()}
-            className={`z-[60] gap-0 rounded-2xl border-border bg-card p-6 shadow-2xl ${
+            className={`z-[60] max-h-[90dvh] gap-0 overflow-y-auto rounded-2xl border-border bg-card p-6 shadow-2xl ${
               current ? "sm:max-w-md" : "text-center sm:max-w-sm"
             }`}
           >
@@ -408,7 +408,7 @@ export function BroadcastPanel({
                   </span>
                   <div>
                     <p className="font-semibold text-foreground">{current.name}</p>
-                    <p className="text-xs text-muted-foreground">{prettyPhone(current.phone)}</p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">{prettyPhone(current.phone)}</p>
                   </div>
                 </div>
 

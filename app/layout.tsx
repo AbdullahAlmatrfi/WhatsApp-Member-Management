@@ -5,8 +5,10 @@ import { AppProvider } from '@/lib/translations'
 import { AuthProvider } from '@/lib/auth'
 import './globals.css'
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+// next/font renames the family to a hashed name, so it must be exposed as a CSS
+// variable and referenced via that variable (not the literal 'Geist' string).
+const geistSans = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
 export const metadata: Metadata = {
   title: 'GymConnect - WhatsApp Member Manager',
@@ -36,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" className={`dark ${geistSans.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body className="font-sans antialiased">
         <AppProvider>
           <AuthProvider>

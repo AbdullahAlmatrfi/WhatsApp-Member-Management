@@ -177,6 +177,7 @@ export default function Home() {
         return;
       }
       setMembers(rows);
+      setLoadError(false); // a good refresh clears a stale "couldn't load" card
     } catch {
       // Silent: a failed background refresh keeps what's on screen.
     } finally {
@@ -220,6 +221,7 @@ export default function Home() {
         // leave someone shown as "Messaged" who wasn't — roll the flag back, and
         // re-check the role so a revoked user is routed to the gate.
         setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: previousSent } : m)));
+        toast(t.saveFailed, "error"); // don't leave staff wondering why the tick reverted
         refreshRole();
       }
     } catch {
@@ -339,7 +341,7 @@ export default function Home() {
     if (waPreference === "web") {
       // Named target reuses one WhatsApp Web tab across sends (matches Broadcast).
       // Null window.opener (can't use "noopener" — it breaks tab reuse).
-      const win = window.open(`https://web.whatsapp.com/send?phone=${phone}`, "gymconnect-whatsapp");
+      const win = window.open(`https://web.whatsapp.com/send?phone=${encodeURIComponent(phone)}`, "gymconnect-whatsapp");
       if (win) {
         try {
           win.opener = null;
@@ -348,7 +350,7 @@ export default function Home() {
         }
       }
     } else {
-      window.location.href = `whatsapp://send?phone=${phone}`;
+      window.location.href = `whatsapp://send?phone=${encodeURIComponent(phone)}`;
     }
   };
 
@@ -416,15 +418,15 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
       <div className="mx-auto max-w-2xl space-y-8">
-        <header className="relative flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <header className="relative flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
             <Image src="/logo.png" alt="GymConnect Logo" width={40} height={40} className="shrink-0" />
-            <div>
-              <h1 className="text-2xl font-bold text-foreground md:text-3xl">{t.title}</h1>
-              <p className="text-sm text-muted-foreground">{t.subtitle}</p>
+            <div className="min-w-0">
+              <h1 className="truncate text-xl font-bold text-foreground sm:text-2xl md:text-3xl">{t.title}</h1>
+              <p className="truncate text-sm text-muted-foreground">{t.subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => {
                 // Pull a fresh list just before broadcasting so you don't
