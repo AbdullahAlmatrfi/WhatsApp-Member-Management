@@ -23,12 +23,13 @@ export function todayRiyadhStamp(): string {
   return riyadhYMD(new Date());
 }
 
-/** DD/MM/YYYY in gym-local time; "" when the date is missing/invalid. */
+/** YYYY-MM-DD (ISO) in gym-local time; "" when the date is missing/invalid.
+ * ISO is unambiguous across locales (no DD/MM vs MM/DD confusion in Excel). */
 export function formatDateRiyadh(createdAt: string | null | undefined): string {
   if (!createdAt) return "";
   const d = new Date(createdAt);
   if (isNaN(d.getTime())) return "";
-  return new Intl.DateTimeFormat("en-GB", {
+  return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Riyadh",
     year: "numeric",
     month: "2-digit",

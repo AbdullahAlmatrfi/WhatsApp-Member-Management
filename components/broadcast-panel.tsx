@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Send, Info, Check, MessageSquare, Users, RotateCcw } from "lucide-react";
+import { X, Send, Info, Check, MessageSquare, Users, RotateCcw, ChevronLeft } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -392,6 +392,15 @@ export function BroadcastPanel({
           >
             {current ? (
               <>
+                {/* Go back to the compose/recipients screen — message + remaining
+                    selection are kept, so staff can edit the text or uncheck people. */}
+                <button
+                  onClick={() => setBroadcasting(false)}
+                  className="mb-3 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  {t.backToEdit}
+                </button>
                 <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
                   <div
                     className="h-full rounded-full bg-primary transition-all duration-300"
