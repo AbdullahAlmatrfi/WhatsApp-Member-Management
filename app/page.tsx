@@ -396,6 +396,7 @@ export default function Home() {
     setMembers((prev) => prev.filter((m) => !idSet.has(m.id)));
     writesInFlight.current++;
     writeEpoch.current++;
+    let reconcile = false; // a partial delete needs an immediate refetch
     try {
       const removed = await deleteMembersByIds(ids);
       if (userIdRef.current !== uid) return;
@@ -406,6 +407,10 @@ export default function Home() {
         if (userIdRef.current !== uid) return;
         if (isApprovedRole(r)) toast(t.bulkDeletedToast.replace("{n}", String(removedMembers.length)));
       } else {
+        // If fewer rows came back than we optimistically removed, some still
+        // exist in the DB — reconcile the list now instead of waiting for the
+        // background refresh, so nothing shows as deleted that isn't.
+        if (removed !== removedMembers.length) reconcile = true;
         toast(t.bulkDeletedToast.replace("{n}", String(removed)));
       }
     } catch {
@@ -421,6 +426,7 @@ export default function Home() {
     } finally {
       writesInFlight.current--;
       writeEpoch.current++;
+      if (reconcile) refreshMembers();
     }
   };
 
