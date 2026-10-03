@@ -33,6 +33,7 @@ Database + login (admin-only, no public signup) · bulk delete · auto-delete (d
 
 ## Future enhancements (not built)
 - **Multi-gym / multi-tenant**: admin creates multiple gyms; staff + members scoped per gym; gyms fully isolated from each other. (Owner chose single-gym for now.)
+- **Admin 2FA / OTP**: stronger admin sign-in via a one-time code over SMS or email. (Deferred until all versions are done.)
 
 ## Rules
 - **Design:** follow `DESIGN.md` — green (`--primary #10b981`) only, no off-brand colors.
