@@ -124,6 +124,9 @@ export default function Home() {
   useEffect(() => {
     if (!userId || !isApprovedRole(role)) return;
     let active = true;
+    // Clear any previous user's name so a shared PC never greets the next person
+    // with the last one's name while this fetch is in flight.
+    setDisplayName(null);
     fetchGymName()
       .then((g) => active && setGymName(g))
       .catch(() => {});
@@ -179,6 +182,10 @@ export default function Home() {
   useEffect(() => {
     userIdRef.current = userId;
     setMembers([]);
+    // Identity is per-user: never carry the last user's greeting/gym name across
+    // a sign-out or account switch on a shared PC.
+    setDisplayName(null);
+    setGymName(null);
     setLoadError(false);
     setDeleteTarget(null);
     setShowSettings(false);
@@ -312,6 +319,12 @@ export default function Home() {
         // (→ gate). Probe the role to decide.
         const r = await refreshRole();
         if (userIdRef.current !== uid) return;
+        if (r === undefined) {
+          // Probe failed (network blip) — we can't tell which case this is, so
+          // say so rather than silently doing nothing.
+          toast(t.saveFailed, "error");
+          return;
+        }
         if (isApprovedRole(r)) setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
         return;
       }
@@ -466,7 +479,7 @@ export default function Home() {
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="max-w-md rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/20">
-            <Settings2 className="h-6 w-6 text-primary" />
+            <Settings2 className="h-6 w-6 text-primary-accent" />
           </div>
           <h1 className="mb-2 text-xl font-semibold text-foreground">{t.configTitle}</h1>
           <p className="text-sm text-muted-foreground">{t.configBody}</p>
@@ -477,7 +490,7 @@ export default function Home() {
   if (authLoading) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
       </main>
     );
   }
@@ -492,7 +505,7 @@ export default function Home() {
   if (!roleResolved && !roleError) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
       </main>
     );
   }
@@ -530,7 +543,7 @@ export default function Home() {
   if (role === "admin" && !staffView) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
       </main>
     );
   }
@@ -572,13 +585,13 @@ export default function Home() {
               className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
               aria-label={t.broadcast}
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-5 w-5 rtl:-scale-x-100" />
               <span className="hidden sm:inline">{t.broadcast}</span>
             </button>
             {role === "admin" && (
               <Link
                 href="/admin"
-                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
                 aria-label={t.adminTitle}
                 title={t.adminTitle}
               >
@@ -587,18 +600,18 @@ export default function Home() {
             )}
             <button
               onClick={() => setShowSettings(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
               aria-label={t.settings}
             >
               <Settings2 className="h-6 w-6" />
             </button>
             <button
               onClick={() => signOut()}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-destructive"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
               aria-label={t.signOut}
               title={t.signOut}
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5 rtl:-scale-x-100" />
             </button>
           </div>
         </header>
@@ -618,12 +631,12 @@ export default function Home() {
 
           <div>
             {loadingMembers ? (
-              <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/60 bg-card p-12 text-muted-foreground shadow-sm">
                 <Loader2 className="h-5 w-5 animate-spin" />
                 {t.loadingMembers}
               </div>
             ) : loadError ? (
-              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/50 bg-card p-12 text-center">
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/60 bg-card p-12 text-center shadow-sm">
                 <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
                 <button
                   onClick={() => loadMembers()}

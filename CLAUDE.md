@@ -9,7 +9,7 @@ search them, and **broadcast a WhatsApp text message** to selected members. Saud
 
 ## Tech
 Next.js 16 · React 19 · TypeScript · Tailwind v4 · shadcn/ui · Geist font ·
-(Supabase = planned for database + login). Deploys to Vercel.
+Supabase (database + auth + RLS, live). Deploys to **Netlify**.
 
 ## Structure
 - `app/page.tsx` — main screen: state, add/delete member, broadcast + WhatsApp handoff
@@ -18,15 +18,17 @@ Next.js 16 · React 19 · TypeScript · Tailwind v4 · shadcn/ui · Geist font �
 - `lib/translations.tsx` — EN/AR strings + theme/lang/WA context (AppProvider)
 - `supabase/schema.sql` — planned database (not wired yet)
 
-## Current state (v1)
-✅ Add/search/delete members · text broadcast with `{name}` · Not sent/Sent status ·
-dark+light · EN/AR. **Data is in-memory (localStorage for prefs only) — nothing persists yet.**
+## Current state
+✅ Add/search/delete members · bulk delete · text broadcast with `{name}` · Not messaged/Messaged status ·
+dark+light · EN/AR · admin console (staff accounts, gym name, auto-delete window) ·
+landing + login. **Data persists in Supabase (RLS-enforced); localStorage holds prefs only.**
 
 ## Planned (v2)
 Database + login (admin-only, no public signup) · bulk delete · auto-delete (default 3 days) · deploy.
 
 ## Account & visibility model (decided)
 - **Admin creates staff logins** (no public signup, no approval queue) via the admin console → `app/api/admin-users` (server-only, holds the Supabase service_role key; needs `SUPABASE_SERVICE_ROLE_KEY` in Netlify).
+- **One staff account per gym** (owner's rule). Single-gym for now → exactly ONE staff login beside the admin. The admin console hides/disables "Add staff" once a staff account exists (delete it to replace the person). **UI-enforced only** today; needs server-side enforcement before multi-gym.
 - **One shared staff member pool**: all staff see each other's members (right for a gym front desk).
 - **Admin-private members**: members an admin adds are private to the admin; staff never see them. Admin sees everything. Enforced by `members.admin_private` + RLS (`supabase/schema-v3.sql`).
 - **Identity**: `settings.gym_name` (header title) + `profiles.display_name` (greeting), both admin-set.
@@ -36,7 +38,7 @@ Database + login (admin-only, no public signup) · bulk delete · auto-delete (d
 - **Admin 2FA / OTP**: stronger admin sign-in via a one-time code over SMS or email. (Deferred until all versions are done.)
 
 ## Rules
-- **Design:** follow `DESIGN.md` — green (`--primary #10b981`) only, no off-brand colors.
+- **Design:** follow `DESIGN.md` — brand green `--primary #047857` only, no off-brand colors (green text uses `text-primary-accent`).
 - **Bilingual:** every user string in `lib/translations.tsx`, EN + AR, use `start/end` (RTL).
 - **Keep it typed:** `tsc` clean. Match existing patterns; don't invent new ones.
 - **Team model:** specialists in `.claude/agents/` — deploy the right one per task; QA + security check before merge.

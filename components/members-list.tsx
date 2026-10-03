@@ -50,6 +50,13 @@ export function MembersList({
     return () => clearInterval(id);
   }, []);
 
+  // Staff otherwise never learn members auto-delete. Whole days (min 1); for a
+  // sub-day window (the 7-hour option) say hours so it isn't shown as "1 day".
+  const autoDeleteNotice =
+    retentionHours < 24
+      ? t.autoDeleteNoticeHours.replace("{n}", String(Math.max(1, Math.round(retentionHours))))
+      : t.autoDeleteNotice.replace("{n}", String(Math.max(1, Math.round(retentionHours / 24))));
+
   const query = searchQuery.trim();
   const nameQuery = query.toLowerCase();
   const filteredMembers = members.filter(
@@ -100,11 +107,11 @@ export function MembersList({
   };
 
   return (
-    <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg backdrop-blur-xl sm:p-6 transition-colors duration-300">
-      <div className="mb-6 flex items-center justify-between gap-2">
+    <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6 transition-colors duration-300">
+      <div className="mb-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
-            <Users className="h-5 w-5 text-primary" />
+            <Users className="h-5 w-5 text-primary-accent" />
           </div>
           <h2 className="text-xl font-semibold text-foreground">{t.members}</h2>
         </div>
@@ -112,6 +119,7 @@ export function MembersList({
           {selectMode ? (
             <button
               onClick={exitSelect}
+              aria-label={t.cancel}
               className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -122,7 +130,7 @@ export function MembersList({
               <button
                 onClick={() => setSelectMode(true)}
                 disabled={members.length === 0}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary-accent disabled:cursor-not-allowed disabled:opacity-40"
                 aria-label={t.selectBtn}
               >
                 <ListChecks className="h-4 w-4" />
@@ -131,7 +139,7 @@ export function MembersList({
               <button
                 onClick={() => downloadMembersCsv(members, t)}
                 disabled={members.length === 0}
-                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
+                className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:border-primary/40 hover:text-primary-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted-foreground"
                 aria-label={`${t.downloadAll} (${members.length})`}
               >
                 <Download className="h-4 w-4" />
@@ -139,13 +147,14 @@ export function MembersList({
                   {t.downloadAll} ({members.length})
                 </span>
               </button>
-              <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-medium text-primary">
+              <span className="rounded-full bg-primary/20 px-3 py-1 text-sm font-medium text-primary-accent">
                 {members.length}
               </span>
             </>
           )}
         </div>
       </div>
+      <p className="mb-6 text-xs text-muted-foreground">{autoDeleteNotice}</p>
 
       <div className="relative mb-6">
         <Search className="absolute start-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
@@ -163,11 +172,11 @@ export function MembersList({
       {selectMode && (
         <div className="mb-3 flex items-center justify-between gap-2 text-xs">
           <span className="text-muted-foreground">
-            <span className="font-semibold text-primary">{selectedN}</span> {t.selectedCount}
+            <span className="font-semibold text-primary-accent">{selectedN}</span> {t.selectedCount}
           </span>
           <div className="flex items-center gap-3">
             {filteredMembers.length > 0 && (
-              <button onClick={toggleAllShown} className="font-medium text-primary hover:underline">
+              <button onClick={toggleAllShown} className="font-medium text-primary-accent hover:underline">
                 {allShownSelected ? t.clearSelection : t.selectAllShown}
               </button>
             )}
@@ -191,6 +200,7 @@ export function MembersList({
           <p className="text-muted-foreground">
             {members.length === 0 ? t.noMembers : t.noResults}
           </p>
+          <p className="mt-2 max-w-xs text-xs text-muted-foreground">{autoDeleteNotice}</p>
         </div>
       ) : (
         <div className="space-y-3">

@@ -52,6 +52,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             </button>
             <button
               onClick={onLogin}
+              aria-label={t.loginTitle}
               className="ms-1 flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
             >
               <LogIn className="h-4 w-4" />
@@ -65,10 +66,10 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           {/* Copy */}
           <div className="duration-700 animate-in fade-in-0 slide-in-from-bottom-3 motion-reduce:animate-none">
             <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground">
-              <WhatsAppGlyph className="h-3.5 w-3.5 text-primary" />
+              <WhatsAppGlyph className="h-3.5 w-3.5 text-primary-accent" />
               {t.subtitle}
             </div>
-            <h1 className="text-balance text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl md:text-6xl">
+            <h1 className="text-balance text-4xl font-bold leading-[1.1] tracking-tight rtl:tracking-normal sm:text-5xl md:text-6xl">
               {t.landingHeadline}
             </h1>
             <p className="mt-5 max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
@@ -89,7 +90,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <div className="duration-700 animate-in fade-in-0 slide-in-from-bottom-4 motion-reduce:animate-none lg:justify-self-end">
             <div className="relative w-full max-w-sm rounded-3xl border border-border/70 bg-card p-5 shadow-2xl">
               <div className="mb-4 flex items-center gap-2.5">
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary-accent">
                   <Send className="h-4 w-4" />
                 </span>
                 <span className="font-semibold">{t.broadcast}</span>
@@ -116,7 +117,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 {[0, 1, 2, 3, 4].map((i) => (
                   <span
                     key={i}
-                    className="gc-deliver flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary"
+                    className="gc-deliver flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary-accent"
                     style={{ animation: "gc-deliver 3.6s ease-in-out infinite both", animationDelay: `${i * 0.45}s` }}
                   >
                     <Check className="h-5 w-5" />
@@ -126,7 +127,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
 
               {/* floating "delivered" chip */}
               <div className="absolute -bottom-3 end-5 flex items-center gap-1.5 rounded-full border border-border bg-popover px-3 py-1 text-xs font-medium shadow-lg">
-                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <Sparkles className="h-3.5 w-3.5 text-primary-accent" />
                 24 / 24
               </div>
             </div>
@@ -139,12 +140,12 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <div className="grid gap-6 md:grid-cols-3 md:gap-8">
             {steps.map((s, i) => (
               <div key={s.title} className="flex gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <s.icon className="h-5 w-5" />
                 </span>
                 <div>
                   <h3 className="flex items-baseline gap-2 font-semibold">
-                    <span className="text-sm text-primary tabular-nums">{i + 1}</span>
+                    <span className="text-sm text-primary-accent tabular-nums">{i + 1}</span>
                     {s.title}
                   </h3>
                   <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.body}</p>

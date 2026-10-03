@@ -16,15 +16,21 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [isAdding, setIsAdding] = useState(false);
-  const [phoneError, setPhoneError] = useState(false);
+  // Set on blur / failed submit so the error doesn't nag on the first keystroke.
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const phoneValid = isValidSaudiMobile(phone);
+  // Show the inline error once the field was left, or immediately when the first
+  // digit can't start a Saudi mobile (anything but 5). The submit button stays
+  // disabled while invalid, so this is the only place staff learn why.
+  const phoneError = phone.length > 0 && !phoneValid && (phoneTouched || phone[0] !== "5");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // A tiny label like "1" is fine; only a blank / invisible name is rejected.
     const finalName = cleanName(name);
     if (isAdding || !phone || !finalName) return;
-    if (!isValidSaudiMobile(phone)) {
-      setPhoneError(true);
+    if (!phoneValid) {
+      setPhoneTouched(true);
       return;
     }
 
@@ -35,6 +41,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
       if (saved) {
         setPhone("");
         setName("");
+        setPhoneTouched(false);
       }
     } finally {
       setIsAdding(false);
@@ -42,10 +49,10 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
   };
 
   return (
-    <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg backdrop-blur-xl sm:p-6 transition-colors duration-300">
+    <section className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6 transition-colors duration-300">
       <div className="mb-6 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20">
-          <Plus className="h-5 w-5 text-primary" />
+          <Plus className="h-5 w-5 text-primary-accent" />
         </div>
         <h2 className="text-xl font-semibold text-foreground">{t.addMember}</h2>
       </div>
@@ -76,27 +83,32 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
               value={phone}
               onChange={(e) => {
                 setPhone(sanitizePhoneInput(e.target.value));
-                setPhoneError(false);
+                setPhoneTouched(false); // re-validate on the next blur
               }}
+              onBlur={() => setPhoneTouched(true)}
               placeholder={t.phonePlaceholder}
               aria-label={t.phoneLabel}
               aria-invalid={phoneError}
-              aria-describedby={phoneError ? "phone-error" : undefined}
+              aria-describedby={phoneError ? "phone-error" : "phone-hint"}
               autoComplete="off"
               className="h-12 w-full rounded-xl border border-border bg-input ps-16 pe-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30 aria-invalid:border-destructive"
             />
           </div>
         </div>
 
-        {phoneError && (
+        {phoneError ? (
           <p id="phone-error" role="alert" className="text-sm text-destructive">
             {t.phoneInvalid}
+          </p>
+        ) : (
+          <p id="phone-hint" className="text-xs text-muted-foreground">
+            {t.phoneHint}
           </p>
         )}
 
         <button
           type="submit"
-          disabled={isAdding || !isValidSaudiMobile(phone) || !isValidName(name)}
+          disabled={isAdding || !phoneValid || !isValidName(name)}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
         >
           {isAdding ? (

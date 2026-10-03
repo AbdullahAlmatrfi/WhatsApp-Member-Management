@@ -26,7 +26,7 @@ export function StatsRow({ total, messaged }: StatsRowProps) {
   return (
     <section
       aria-label={t.statTotal}
-      className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+      className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-6"
     >
       <div className="flex items-stretch">
         {figures.map((f, i) => (
@@ -36,7 +36,7 @@ export function StatsRow({ total, messaged }: StatsRowProps) {
           >
             <div
               className={`text-2xl font-bold tabular-nums leading-none ${
-                f.accent ? "text-primary" : "text-foreground"
+                f.accent ? "text-primary-accent" : "text-foreground"
               }`}
               style={{ fontFeatureSettings: '"tnum"' }}
             >

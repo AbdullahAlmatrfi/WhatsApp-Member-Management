@@ -16,7 +16,7 @@ export function PendingGate() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary-accent">
           <Clock className="h-7 w-7" />
         </div>
         <h1 className="mb-2 text-xl font-semibold text-foreground">{t.pendingTitle}</h1>

@@ -182,8 +182,13 @@ export default function AdminPage() {
   }, [role, load]);
 
   // ---- create a new staff login ----
+  // TODO: the one-staff-per-gym cap is UI-only (single-gym setup). The form is
+  // hidden below and this guard blocks a stray submit, but app/api/admin-users
+  // and the schema do not enforce it yet — add server-side enforcement before
+  // this goes multi-gym. Pending accounts don't count toward the cap.
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
+    if (accounts.some((a) => a.role === "staff")) return;
     const email = newEmail.trim().toLowerCase();
     const pwd = newPassword;
     if (!EMAIL_RE.test(email)) {
@@ -280,7 +285,7 @@ export default function AdminPage() {
   if (authLoading || (session && !roleResolved && !roleError)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
       </main>
     );
   }
@@ -325,7 +330,7 @@ export default function AdminPage() {
     h === 7 ? t.win7 : h === 24 ? t.win24 : h === 48 ? t.win48 : t.win72;
   const roleBadge = (r: string) =>
     r === "admin"
-      ? "bg-primary/15 text-primary"
+      ? "bg-primary/15 text-primary-accent"
       : r === "staff"
         ? "bg-muted text-foreground"
         : "bg-muted text-muted-foreground";
@@ -343,6 +348,7 @@ export default function AdminPage() {
   const greeting = hour < 12 ? t.greetMorning : hour < 18 ? t.greetAfternoon : t.greetEvening;
   const myName = accounts.find((a) => a.id === user?.id)?.displayName;
   const staffCount = accounts.filter((a) => a.role === "staff").length;
+  const staffCapReached = staffCount >= 1; // one staff account per gym (UI-only, see TODO above)
   const pendingCount = accounts.filter((a) => a.role === "pending").length;
   const msgPct = stats && stats.total > 0 ? Math.floor((stats.messaged / stats.total) * 100) : 0;
 
@@ -366,7 +372,7 @@ export default function AdminPage() {
               <p className="flex items-center gap-1.5 truncate text-sm text-muted-foreground" dir="auto">
                 <span className="truncate">{myName ? `${greeting}${lang === "ar" ? "،" : ","} ${myName}` : greeting}</span>
                 <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground/80">
-                  · <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  · <ShieldCheck className="h-3.5 w-3.5 text-primary-accent" />
                   {t.roleAdmin}
                 </span>
               </p>
@@ -375,21 +381,21 @@ export default function AdminPage() {
           <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={goStaffView}
-              className="flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+              className="flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary-accent"
             >
               <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
               <span className="hidden sm:inline">{t.staffView}</span>
             </button>
             <button
               onClick={() => setShowSettings(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary-accent"
               aria-label={t.settings}
             >
               <Settings2 className="h-5 w-5" />
             </button>
             <button
               onClick={() => signOut()}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary-accent"
               aria-label={t.signOut}
               title={t.signOut}
             >
@@ -410,7 +416,7 @@ export default function AdminPage() {
               <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
                 {kpis.map((k) => (
                   <div key={k.label}>
-                    <div className={`text-2xl font-bold tabular-nums leading-none ${k.accent ? "text-primary" : "text-foreground"}`}>
+                    <div className={`text-2xl font-bold tabular-nums leading-none ${k.accent ? "text-primary-accent" : "text-foreground"}`}>
                       {k.value}
                     </div>
                     <div className="mt-1.5 text-xs text-muted-foreground">{k.label}</div>
@@ -437,7 +443,7 @@ export default function AdminPage() {
             {/* Add staff */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <UserPlus className="h-4 w-4" />
                 </div>
                 <div>
@@ -445,6 +451,9 @@ export default function AdminPage() {
                   <p className="text-xs text-muted-foreground">{t.addStaffSub}</p>
                 </div>
               </div>
+              {staffCapReached ? (
+                <p className="rounded-xl bg-muted p-3 text-sm text-muted-foreground">{t.oneStaffNote}</p>
+              ) : (
               <form onSubmit={handleCreate} className="space-y-3">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">{t.addName}</label>
@@ -484,7 +493,7 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={() => setNewPassword(generatePassword())}
-                      className="shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                      className="shrink-0 rounded-lg border border-border bg-secondary/50 px-3 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-accent"
                     >
                       {t.generateBtn}
                     </button>
@@ -508,12 +517,13 @@ export default function AdminPage() {
                   )}
                 </button>
               </form>
+              )}
             </section>
 
             {/* Gym name */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <Building2 className="h-4 w-4" />
                 </div>
                 <div>
@@ -544,7 +554,7 @@ export default function AdminPage() {
             {/* Auto-delete window */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <Clock className="h-4 w-4" />
                 </div>
                 <div>
@@ -576,7 +586,7 @@ export default function AdminPage() {
             {/* Staff accounts list */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <Users className="h-4 w-4" />
                 </div>
                 <div>
@@ -620,7 +630,7 @@ export default function AdminPage() {
                             setEditValue(a.displayName ?? "");
                           }}
                           title={t.editName}
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-accent"
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
@@ -642,7 +652,7 @@ export default function AdminPage() {
                               <button
                                 onClick={() => setAction({ acc: a, kind: "reset" })}
                                 title={t.resetPwd}
-                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary-accent"
                               >
                                 <KeyRound className="h-4 w-4" />
                               </button>
@@ -741,7 +751,7 @@ export default function AdminPage() {
               onClick={copyCred}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
             >
-              {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+              {copied ? <Check className="h-4 w-4 text-primary-accent" /> : <Copy className="h-4 w-4" />}
               {copied ? t.copiedBtn : t.copyBtn}
             </button>
             <button
