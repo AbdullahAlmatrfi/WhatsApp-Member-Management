@@ -51,7 +51,9 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
+        {/* Stacked (one field per row): the form now lives in a narrow sidebar on
+            desktop, so a 2-column split would cut off the phone number. */}
+        <div className="grid gap-4">
           {/* Name first, then phone — the order reception fills them in. A short
               label (even "1") is accepted. */}
           <input
