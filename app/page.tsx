@@ -13,6 +13,7 @@ import { DeleteDialog } from "@/components/delete-dialog";
 import { SettingsPanel } from "@/components/settings-panel";
 import { BroadcastPanel } from "@/components/broadcast-panel";
 import { LoginScreen } from "@/components/login-screen";
+import { LandingPage } from "@/components/landing-page";
 import { PendingGate } from "@/components/pending-gate";
 import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
@@ -74,6 +75,9 @@ export default function Home() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   // The auto-delete window drives the "leaving soon" tag; default until it loads.
   const [retentionHours, setRetentionHours] = useState(DEFAULT_RETENTION_HOURS);
+
+  // Logged-out visitors see the landing page first; "Staff Login" opens the form.
+  const [showLogin, setShowLogin] = useState(false);
 
   // Identity: the gym's name (header title) and this user's friendly name (greeting).
   const [gymName, setGymName] = useState<string | null>(null);
@@ -471,7 +475,13 @@ export default function Home() {
       </main>
     );
   }
-  if (!session) return <LoginScreen />;
+  if (!session) {
+    return showLogin ? (
+      <LoginScreen onBack={() => setShowLogin(false)} />
+    ) : (
+      <LandingPage onLogin={() => setShowLogin(true)} />
+    );
+  }
   // Role not yet known for this session → hold a spinner, never flash the gate.
   if (!roleResolved && !roleError) {
     return (

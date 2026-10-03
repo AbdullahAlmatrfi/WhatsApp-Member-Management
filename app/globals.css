@@ -90,6 +90,18 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* Landing hero: member chips light up "Sent" in sequence, on a gentle loop.
+   Base state (no animation) is the delivered/green state, so reduced-motion
+   simply shows everyone messaged. */
+@keyframes gc-deliver {
+  0%, 12% { opacity: 0.35; transform: scale(0.85); }
+  28%, 72% { opacity: 1; transform: scale(1); }
+  88%, 100% { opacity: 0.35; transform: scale(0.85); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gc-deliver { animation: none !important; }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

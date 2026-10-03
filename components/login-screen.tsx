@@ -1,11 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, LogIn } from "lucide-react";
+import { Loader2, LogIn, ArrowLeft } from "lucide-react";
 import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 
-export function LoginScreen() {
+interface LoginScreenProps {
+  /** Optional: go back to the landing page. */
+  onBack?: () => void;
+}
+
+export function LoginScreen({ onBack }: LoginScreenProps) {
   const { t } = useApp();
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
@@ -30,7 +35,16 @@ export function LoginScreen() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-border/50 bg-card p-8 shadow-lg">
+      <div className="w-full max-w-sm rounded-2xl border border-border/50 bg-card p-8 shadow-lg duration-500 animate-in fade-in-0 zoom-in-95 motion-reduce:animate-none">
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="mb-4 flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {t.backToApp}
+          </button>
+        )}
         <div className="mb-6 flex flex-col items-center text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
             <LogIn className="h-7 w-7" />
