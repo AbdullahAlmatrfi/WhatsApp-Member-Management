@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -18,6 +19,8 @@ import {
   MessageCircle,
   Building2,
   Pencil,
+  Clock,
+  LogOut,
 } from "lucide-react";
 import {
   Dialog,
@@ -28,16 +31,19 @@ import {
 import { useApp } from "@/lib/translations";
 import { useAuth } from "@/lib/auth";
 import { Toast, type ToastVariant } from "@/components/toast";
+import { SettingsPanel } from "@/components/settings-panel";
 import {
   fetchAllAccounts,
   fetchAutoDeleteHours,
   fetchGymName,
+  fetchMemberStats,
   updateGymName,
   setUserRole,
   updateAutoDeleteHours,
   isApprovedRole,
   getDbErrorCode,
   type Account,
+  type MemberStats,
 } from "@/lib/members-api";
 import {
   createStaffAccount,
@@ -54,7 +60,7 @@ type ActionKind = "approve" | "delete" | "reset";
 type Credentials = { email: string; password: string; title: string };
 
 export default function AdminPage() {
-  const { t } = useApp();
+  const { t, lang } = useApp();
   const { session, loading: authLoading, role, roleResolved, roleError, refreshRole, signOut, user } = useAuth();
   const router = useRouter();
 
@@ -70,6 +76,8 @@ export default function AdminPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [hours, setHours] = useState<number | null>(null);
+  const [stats, setStats] = useState<MemberStats | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Gym name
   const [gymName, setGymName] = useState("");
@@ -123,14 +131,16 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [accs, h, g] = await Promise.all([
+      const [accs, h, g, s] = await Promise.all([
         fetchAllAccounts(),
         fetchAutoDeleteHours().catch(() => null),
         fetchGymName().catch(() => null),
+        fetchMemberStats().catch(() => null),
       ]);
       setAccounts(accs);
       if (h) setHours(h);
       setGymName(g ?? "");
+      setStats(s);
     } catch {
       toast(t.loadFailed, "error");
     } finally {
@@ -328,95 +338,102 @@ export default function AdminPage() {
   const dialogConfirm =
     action?.kind === "approve" ? t.approve : action?.kind === "delete" ? t.deleteAccount : t.resetPwd;
 
+  // Header identity + overview figures.
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? t.greetMorning : hour < 18 ? t.greetAfternoon : t.greetEvening;
+  const myName = accounts.find((a) => a.id === user?.id)?.displayName;
+  const staffCount = accounts.filter((a) => a.role === "staff").length;
+  const pendingCount = accounts.filter((a) => a.role === "pending").length;
+  const msgPct = stats && stats.total > 0 ? Math.floor((stats.messaged / stats.total) * 100) : 0;
+
+  const kpis: { label: string; value: number; accent?: boolean; progress?: number }[] = [
+    { label: t.statTotal, value: stats?.total ?? 0 },
+    { label: t.statMessaged, value: stats?.messaged ?? 0, accent: true, progress: msgPct },
+    { label: t.kpiStaff, value: staffCount },
+    { label: t.kpiPending, value: pendingCount, accent: pendingCount > 0 },
+  ];
+
   return (
-    <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
-      <div className="mx-auto max-w-2xl space-y-6">
+    <main className="min-h-dvh bg-background p-4 transition-colors duration-300 md:p-8">
+      <div className="mx-auto max-w-2xl lg:max-w-6xl">
         <header className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">
-              <ShieldCheck className="h-5 w-5" />
-            </div>
+            <Image src="/logo.png" alt="" width={40} height={40} className="shrink-0" />
             <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold text-foreground md:text-2xl">{t.adminTitle}</h1>
-              <p className="truncate text-sm text-muted-foreground">{t.adminSub}</p>
+              <h1 className="truncate text-xl font-bold text-foreground sm:text-2xl md:text-3xl">
+                {gymName || t.title}
+              </h1>
+              <p className="flex items-center gap-1.5 truncate text-sm text-muted-foreground" dir="auto">
+                <span className="truncate">{myName ? `${greeting}${lang === "ar" ? "،" : ","} ${myName}` : greeting}</span>
+                <span className="inline-flex shrink-0 items-center gap-1 text-muted-foreground/80">
+                  · <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                  {t.roleAdmin}
+                </span>
+              </p>
             </div>
           </div>
-          <button
-            onClick={goStaffView}
-            className="flex h-10 shrink-0 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{t.staffView}</span>
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={goStaffView}
+              className="flex h-10 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
+            >
+              <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+              <span className="hidden sm:inline">{t.staffView}</span>
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-primary"
+              aria-label={t.settings}
+            >
+              <Settings2 className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => signOut()}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-destructive"
+              aria-label={t.signOut}
+              title={t.signOut}
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
+          <div className="mt-6 flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             {t.loadingApp}
           </div>
         ) : (
-          <>
-            {/* Gym name */}
-            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Building2 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-foreground">{t.gymNameTitle}</h2>
-                  <p className="text-xs text-muted-foreground">{t.gymNameDesc}</p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={gymName}
-                  onChange={(e) => setGymName(e.target.value)}
-                  placeholder={t.gymNamePlaceholder}
-                  maxLength={40}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
-                />
-                <button
-                  onClick={saveGymName}
-                  disabled={savingGym}
-                  className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
-                >
-                  {savingGym && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {t.saveBtn}
-                </button>
-              </div>
-            </section>
-
-            {/* Settings — auto-delete window */}
-            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
-              <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <Settings2 className="h-4 w-4" />
-                </div>
-                <div>
-                  <h2 className="font-semibold text-foreground">{t.autoDeleteTitle}</h2>
-                  <p className="text-xs text-muted-foreground">{t.autoDeleteDesc}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {WINDOWS.map((h) => (
-                  <button
-                    key={h}
-                    onClick={() => changeWindow(h)}
-                    aria-pressed={hours === h}
-                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
-                      hours === h
-                        ? "bg-primary text-primary-foreground"
-                        : "border border-border bg-secondary/50 text-muted-foreground hover:border-primary/40"
-                    }`}
-                  >
-                    {windowLabel(h)}
-                  </button>
+          <div className="mt-6 space-y-6 duration-500 animate-in fade-in-0 slide-in-from-bottom-2 motion-reduce:animate-none lg:mt-8">
+            {/* Overview — a live KPI snapshot */}
+            <section aria-label={t.analyticsTitle} className="rounded-2xl border border-border/60 bg-card p-5 shadow-sm">
+              <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+                {kpis.map((k) => (
+                  <div key={k.label}>
+                    <div className={`text-2xl font-bold tabular-nums leading-none ${k.accent ? "text-primary" : "text-foreground"}`}>
+                      {k.value}
+                    </div>
+                    <div className="mt-1.5 text-xs text-muted-foreground">{k.label}</div>
+                    {k.progress !== undefined && (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out motion-reduce:transition-none"
+                          style={{ width: `${k.progress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
+              <p className="mt-4 text-xs text-muted-foreground">
+                {t.analyticsNote}
+                {stats && stats.privateCount > 0 && ` · ${stats.privateCount} ${t.kpiPrivate}`}
+              </p>
             </section>
 
+            <div className="grid gap-6 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+              {/* Sidebar: add staff, then settings */}
+              <div className="space-y-6">
             {/* Add staff */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
@@ -493,6 +510,69 @@ export default function AdminPage() {
               </form>
             </section>
 
+            {/* Gym name */}
+            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Building2 className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-foreground">{t.gymNameTitle}</h2>
+                  <p className="text-xs text-muted-foreground">{t.gymNameDesc}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={gymName}
+                  onChange={(e) => setGymName(e.target.value)}
+                  placeholder={t.gymNamePlaceholder}
+                  maxLength={40}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary"
+                />
+                <button
+                  onClick={saveGymName}
+                  disabled={savingGym}
+                  className="flex shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
+                >
+                  {savingGym && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t.saveBtn}
+                </button>
+              </div>
+            </section>
+
+            {/* Auto-delete window */}
+            <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <Clock className="h-4 w-4" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-foreground">{t.autoDeleteTitle}</h2>
+                  <p className="text-xs text-muted-foreground">{t.autoDeleteDesc}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {WINDOWS.map((h) => (
+                  <button
+                    key={h}
+                    onClick={() => changeWindow(h)}
+                    aria-pressed={hours === h}
+                    className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${
+                      hours === h
+                        ? "bg-primary text-primary-foreground"
+                        : "border border-border bg-secondary/50 text-muted-foreground hover:border-primary/40"
+                    }`}
+                  >
+                    {windowLabel(h)}
+                  </button>
+                ))}
+              </div>
+            </section>
+              </div>
+
+              {/* Main: staff accounts */}
+              <div>
             {/* Staff accounts list */}
             <section className="rounded-2xl border border-border/50 bg-card p-4 shadow-lg sm:p-6">
               <div className="mb-4 flex items-center gap-3">
@@ -582,7 +662,9 @@ export default function AdminPage() {
                 </div>
               )}
             </section>
-          </>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -714,6 +796,7 @@ export default function AdminPage() {
         </DialogContent>
       </Dialog>
 
+      <SettingsPanel isOpen={showSettings} onClose={() => setShowSettings(false)} />
       <Toast show={showToast} message={toastMsg} variant={toastVariant} />
     </main>
   );

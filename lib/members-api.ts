@@ -203,6 +203,22 @@ export async function updateGymName(name: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
+/** A point-in-time snapshot for the admin overview. Count-only (no names/phones
+ * transferred), and RLS-correct: the admin policy returns every row, so these
+ * are the true totals. `privateCount` is the admin's own private members. */
+export type MemberStats = { total: number; messaged: number; privateCount: number };
+
+export async function fetchMemberStats(): Promise<MemberStats> {
+  const base = () => supabase.from("members").select("id", { count: "exact", head: true });
+  const [tot, msg, priv] = await Promise.all([base(), base().eq("sent", true), base().eq("admin_private", true)]);
+  if (tot.error) throw tot.error;
+  return {
+    total: tot.count ?? 0,
+    messaged: msg.error ? 0 : msg.count ?? 0,
+    privateCount: priv.error ? 0 : priv.count ?? 0,
+  };
+}
+
 /** Change an account's role (approve → staff, revoke → pending, etc). Admin-only
  * via RLS; the DB guard blocks removing the last admin or self-demotion (those
  * surface as a thrown error). Returns whether a row actually changed. */
