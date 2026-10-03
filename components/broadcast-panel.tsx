@@ -156,11 +156,6 @@ export function BroadcastPanel({
     setQi((i) => i + 1);
   };
 
-  const skip = () => {
-    if (!canAdvance()) return; // ignore double-click / key auto-repeat
-    setQi((i) => i + 1);
-  };
-
   const finishAndClose = () => {
     setBroadcasting(false);
     setSelected(new Set());
@@ -425,28 +420,17 @@ export function BroadcastPanel({
                   {personalMsg(current)}
                 </DialogDescription>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={skip}
-                    onKeyDown={(e) => {
-                      if (e.repeat) e.preventDefault(); // ignore held-Enter auto-repeat
-                    }}
-                    className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
-                  >
-                    {t.skip}
-                  </button>
-                  <button
-                    ref={sendRef}
-                    onClick={() => openChat(current)}
-                    onKeyDown={(e) => {
-                      if (e.repeat) e.preventDefault(); // ignore held-Enter auto-repeat
-                    }}
-                    className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
-                  >
-                    <Send className="h-4 w-4" />
-                    {t.openAndSend}
-                  </button>
-                </div>
+                <button
+                  ref={sendRef}
+                  onClick={() => openChat(current)}
+                  onKeyDown={(e) => {
+                    if (e.repeat) e.preventDefault(); // ignore held-Enter auto-repeat
+                  }}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+                >
+                  <Send className="h-4 w-4" />
+                  {t.openAndSend}
+                </button>
               </>
             ) : (
               <>
