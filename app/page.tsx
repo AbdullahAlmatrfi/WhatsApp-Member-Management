@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Settings2, Send, LogOut, Loader2, ShieldCheck } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
+import { StatsRow } from "@/components/stats-row";
 import { Toast, type ToastVariant } from "@/components/toast";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { SettingsPanel } from "@/components/settings-panel";
@@ -525,7 +526,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
-      <div className="mx-auto max-w-2xl space-y-8">
+      <div className="mx-auto max-w-2xl lg:max-w-6xl">
         <header className="relative flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
             <Image src="/logo.png" alt="GymConnect Logo" width={40} height={40} className="shrink-0" />
@@ -586,33 +587,47 @@ export default function Home() {
           </div>
         </header>
 
-        <AddMemberForm onAddMember={handleAddMember} />
+        <div className="mt-6 grid gap-6 duration-500 animate-in fade-in-0 slide-in-from-bottom-2 motion-reduce:animate-none lg:mt-8 lg:grid-cols-[22rem_minmax(0,1fr)] lg:items-start">
+          {/* Sidebar: add a member, then the live counts. Sticky on desktop so
+              it stays reachable while the list scrolls. */}
+          <div className="space-y-6 lg:sticky lg:top-8">
+            <AddMemberForm onAddMember={handleAddMember} />
+            {members.length > 0 && (
+              <StatsRow
+                total={members.length}
+                messaged={members.filter((m) => sentIds.has(m.id)).length}
+              />
+            )}
+          </div>
 
-        {loadingMembers ? (
-          <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            {t.loadingMembers}
+          <div>
+            {loadingMembers ? (
+              <div className="flex items-center justify-center gap-2 rounded-2xl border border-border/50 bg-card p-12 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                {t.loadingMembers}
+              </div>
+            ) : loadError ? (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/50 bg-card p-12 text-center">
+                <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
+                <button
+                  onClick={() => loadMembers()}
+                  className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
+                >
+                  {t.retry}
+                </button>
+              </div>
+            ) : (
+              <MembersList
+                members={members}
+                sentIds={sentIds}
+                retentionHours={retentionHours}
+                onDeleteRequest={handleDeleteRequest}
+                onWhatsAppClick={handleWhatsAppClick}
+                onBulkDelete={handleBulkDelete}
+              />
+            )}
           </div>
-        ) : loadError ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/50 bg-card p-12 text-center">
-            <p className="text-sm text-muted-foreground">{t.loadFailed}</p>
-            <button
-              onClick={() => loadMembers()}
-              className="flex h-10 items-center justify-center rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110"
-            >
-              {t.retry}
-            </button>
-          </div>
-        ) : (
-          <MembersList
-            members={members}
-            sentIds={sentIds}
-            retentionHours={retentionHours}
-            onDeleteRequest={handleDeleteRequest}
-            onWhatsAppClick={handleWhatsAppClick}
-            onBulkDelete={handleBulkDelete}
-          />
-        )}
+        </div>
       </div>
 
       <Toast show={showToast} message={toastMessage} variant={toastVariant} />

@@ -96,5 +96,14 @@
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300;
+    /* A faint green wash at the top adds warmth and depth without any new color
+       (brand green only, very low opacity). Fixed so it doesn't scroll away. */
+    background-image: radial-gradient(
+      55rem 28rem at 50% -8%,
+      color-mix(in srgb, var(--primary) 9%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
+    background-repeat: no-repeat;
   }
 }
