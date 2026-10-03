@@ -28,34 +28,34 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   ];
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-5 py-6 sm:px-8">
+    <main className="min-h-dvh overflow-x-clip bg-background text-foreground">
+      <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-5 py-6 sm:px-8">
         {/* Top bar */}
         <nav className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
+          <div className="flex min-w-0 items-center gap-2.5">
             <Image src="/logo.png" alt="" width={32} height={32} className="shrink-0" />
-            <span className="text-lg font-bold">{t.title}</span>
+            <span className="truncate text-lg font-bold">{t.title}</span>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={() => setLang(lang === "ar" ? "en" : "ar")}
-              className="flex h-9 items-center rounded-lg px-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              {lang === "ar" ? "English" : "العربية"}
+              <span lang={lang === "ar" ? "en" : "ar"}>{lang === "ar" ? "EN" : "ع"}</span>
             </button>
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              aria-label="Theme"
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={t.appearance}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
             <button
               onClick={onLogin}
-              className="ms-1 flex h-9 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+              className="ms-1 flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
             >
               <LogIn className="h-4 w-4" />
-              {t.loginTitle}
+              <span className="hidden sm:inline">{t.loginTitle}</span>
             </button>
           </div>
         </nav>
@@ -100,22 +100,24 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 {t.landingMockMsg}
               </div>
 
-              {/* send button with a pulse ring */}
-              <div className="relative mb-6 inline-flex w-full">
-                <span className="absolute inset-0 rounded-xl bg-primary/40 animate-ping motion-reduce:hidden" />
-                <span className="relative flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground">
+              {/* send button with a contained pulse (box-shadow, no overflow) */}
+              <div className="mb-6">
+                <span
+                  className="gc-pulse flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground"
+                  style={{ animation: "gc-pulse 2.4s ease-out infinite" }}
+                >
                   <WhatsAppGlyph className="h-4 w-4" />
                   {t.landingSendTo} 24
                 </span>
               </div>
 
-              {/* members receiving, in sequence */}
+              {/* members receiving, in sequence (fill-mode both → no first-paint flash) */}
               <div className="flex items-center justify-between gap-2">
                 {[0, 1, 2, 3, 4].map((i) => (
                   <span
                     key={i}
                     className="gc-deliver flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 text-primary"
-                    style={{ animation: "gc-deliver 3.6s ease-in-out infinite", animationDelay: `${i * 0.45}s` }}
+                    style={{ animation: "gc-deliver 3.6s ease-in-out infinite both", animationDelay: `${i * 0.45}s` }}
                   >
                     <Check className="h-5 w-5" />
                   </span>
@@ -134,7 +136,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
         {/* How it works — a real 3-step sequence */}
         <div className="border-t border-border/60 py-10">
           <h2 className="mb-6 text-sm font-semibold text-muted-foreground">{t.landingHowTitle}</h2>
-          <div className="grid gap-6 sm:grid-cols-3 sm:gap-8">
+          <div className="grid gap-6 md:grid-cols-3 md:gap-8">
             {steps.map((s, i) => (
               <div key={s.title} className="flex gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">

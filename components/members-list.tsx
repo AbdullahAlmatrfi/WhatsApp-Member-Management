@@ -83,8 +83,9 @@ export function MembersList({
     });
   };
 
-  // Only ids that still exist (a member could have been removed meanwhile).
-  const selectedIds = members.filter((m) => selected.has(m.id)).map((m) => m.id);
+  // Only ids that are BOTH selected and currently shown — a destructive action
+  // must never reach rows hidden by the search filter.
+  const selectedIds = filteredMembers.filter((m) => selected.has(m.id)).map((m) => m.id);
   const selectedN = selectedIds.length;
 
   const runBulkDelete = async () => {

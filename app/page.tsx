@@ -113,6 +113,12 @@ export default function Home() {
     }
   }, [role, staffView, router]);
 
+  // Once signed in, drop the "show login" flag so a later sign-out returns the
+  // visitor to the landing page, not straight back to the login form.
+  useEffect(() => {
+    if (session) setShowLogin(false);
+  }, [session]);
+
   // Load the gym name + this user's friendly name once approved (cosmetic — a
   // failure just falls back to the generic title and a nameless greeting).
   useEffect(() => {

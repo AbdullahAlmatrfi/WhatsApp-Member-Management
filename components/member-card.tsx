@@ -63,7 +63,7 @@ export function MemberCard({
         >
           {selected && <Check className="h-4 w-4" />}
         </span>
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:h-12 sm:w-12">
+        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:flex sm:h-12 sm:w-12">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
@@ -90,7 +90,7 @@ export function MemberCard({
 
   return (
     <div className="group relative flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/50 p-3 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 sm:gap-4 sm:p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:h-12 sm:w-12">
+      <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:flex sm:h-12 sm:w-12">
         {initials}
       </div>
 

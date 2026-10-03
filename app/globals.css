@@ -98,8 +98,15 @@
   28%, 72% { opacity: 1; transform: scale(1); }
   88%, 100% { opacity: 0.35; transform: scale(0.85); }
 }
+/* Send-button pulse — a contained ring via box-shadow, so it never spills past
+   the button and can't cause horizontal page scroll (unlike a scaled overlay). */
+@keyframes gc-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 45%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--primary) 0%, transparent); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .gc-deliver { animation: none !important; }
+  .gc-deliver,
+  .gc-pulse { animation: none !important; }
 }
 
 @layer base {

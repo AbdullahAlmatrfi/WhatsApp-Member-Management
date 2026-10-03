@@ -41,8 +41,8 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
             onClick={onBack}
             className="mb-4 flex items-center gap-1 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" />
-            {t.backToApp}
+            <ArrowLeft className="h-4 w-4 rtl:rotate-180" />
+            {t.back}
           </button>
         )}
         <div className="mb-6 flex flex-col items-center text-center">

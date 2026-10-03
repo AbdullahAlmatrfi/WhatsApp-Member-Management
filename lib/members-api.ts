@@ -62,9 +62,17 @@ export async function fetchAutoDeleteHours(): Promise<number> {
  * re-checks the role, same as the single delete. Only a real DB error throws. */
 export async function deleteMembersByIds(ids: string[]): Promise<number> {
   if (ids.length === 0) return 0;
-  const { data, error } = await supabase.from("members").delete().in("id", ids).select("id");
-  if (error) throw error;
-  return data?.length ?? 0;
+  // Chunk so a large selection can't blow past the request URL length limit
+  // (every id goes in the query string). Sum how many actually deleted.
+  const CHUNK = 100;
+  let removed = 0;
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const slice = ids.slice(i, i + CHUNK);
+    const { data, error } = await supabase.from("members").delete().in("id", slice).select("id");
+    if (error) throw error;
+    removed += data?.length ?? 0;
+  }
+  return removed;
 }
 
 export async function deleteMemberById(id: string): Promise<number> {
