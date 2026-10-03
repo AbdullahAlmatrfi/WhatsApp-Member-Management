@@ -56,6 +56,17 @@ export async function fetchAutoDeleteHours(): Promise<number> {
   return Math.min(h, 8760);
 }
 
+/** Bulk delete. Returns how many rows were actually removed (RLS still applies:
+ * a staff caller can't delete admin-private rows, so those simply aren't counted).
+ * 0 while rows were expected means already-gone or RLS-blocked — the caller
+ * re-checks the role, same as the single delete. Only a real DB error throws. */
+export async function deleteMembersByIds(ids: string[]): Promise<number> {
+  if (ids.length === 0) return 0;
+  const { data, error } = await supabase.from("members").delete().in("id", ids).select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
+
 export async function deleteMemberById(id: string): Promise<number> {
   // Returns how many rows were deleted. 0 is NOT an error here: it means the row
   // was already gone (idempotent — a colleague deleted it or the sweep ran) OR

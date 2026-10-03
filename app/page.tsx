@@ -23,6 +23,7 @@ import {
   getDbErrorCode,
   insertMember,
   deleteMemberById,
+  deleteMembersByIds,
   setMemberSent,
   resetAllSent,
   isApprovedRole,
@@ -386,6 +387,43 @@ export default function Home() {
     }
   };
 
+  const handleBulkDelete = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const uid = userIdRef.current;
+    const idSet = new Set(ids);
+    const removedMembers = members.filter((m) => idSet.has(m.id));
+    if (removedMembers.length === 0) return;
+    setMembers((prev) => prev.filter((m) => !idSet.has(m.id)));
+    writesInFlight.current++;
+    writeEpoch.current++;
+    try {
+      const removed = await deleteMembersByIds(ids);
+      if (userIdRef.current !== uid) return;
+      if (removed === 0) {
+        // Nothing deleted while rows were expected → already gone, or RLS-blocked
+        // (revoked). Probe the role; only confirm if still approved.
+        const r = await refreshRole();
+        if (userIdRef.current !== uid) return;
+        if (isApprovedRole(r)) toast(t.bulkDeletedToast.replace("{n}", String(removedMembers.length)));
+      } else {
+        toast(t.bulkDeletedToast.replace("{n}", String(removed)));
+      }
+    } catch {
+      if (userIdRef.current !== uid) return;
+      // Restore the ones that aren't already back (order is approximate — a
+      // refetch will reconcile exact positions).
+      setMembers((prev) => {
+        const have = new Set(prev.map((m) => m.id));
+        const restore = removedMembers.filter((m) => !have.has(m.id));
+        return [...restore, ...prev];
+      });
+      toast(t.saveFailed, "error");
+    } finally {
+      writesInFlight.current--;
+      writeEpoch.current++;
+    }
+  };
+
   const handleWhatsAppClick = (phone: string) => {
     if (waPreference === "web") {
       // Named target reuses one WhatsApp Web tab across sends (matches Broadcast).
@@ -566,6 +604,7 @@ export default function Home() {
             retentionHours={retentionHours}
             onDeleteRequest={handleDeleteRequest}
             onWhatsAppClick={handleWhatsAppClick}
+            onBulkDelete={handleBulkDelete}
           />
         )}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Clock } from "lucide-react";
+import { Trash2, Clock, Check } from "lucide-react";
 import type { Member } from "@/app/page";
 import { useApp } from "@/lib/translations";
 import { addedTag } from "@/lib/format";
@@ -12,6 +12,10 @@ interface MemberCardProps {
   retentionHours: number;
   onDelete: () => void;
   onWhatsAppClick: () => void;
+  /** In select mode the whole card is a toggle; the action buttons are hidden. */
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
 }
 
 function WhatsAppIcon({ className }: { className?: string }) {
@@ -26,12 +30,63 @@ function WhatsAppIcon({ className }: { className?: string }) {
   );
 }
 
-export function MemberCard({ member, sent, retentionHours, onDelete, onWhatsAppClick }: MemberCardProps) {
+export function MemberCard({
+  member,
+  sent,
+  retentionHours,
+  onDelete,
+  onWhatsAppClick,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
+}: MemberCardProps) {
   const { t } = useApp();
   const tag = addedTag(member.createdAt, retentionHours, t);
   const initials = nameInitials(member.name);
 
   const formattedPhone = `+${member.phone.slice(0, 3)} ${member.phone.slice(3, 5)} ${member.phone.slice(5, 8)} ${member.phone.slice(8)}`;
+
+  // Select mode: the whole card is one toggle; action buttons are hidden.
+  if (selectable) {
+    return (
+      <button
+        onClick={onToggleSelect}
+        aria-pressed={selected}
+        className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-start transition-all duration-150 sm:gap-4 sm:p-4 ${
+          selected ? "border-primary bg-primary/10" : "border-border/50 bg-secondary/50 hover:border-primary/30"
+        }`}
+      >
+        <span
+          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-all ${
+            selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+          }`}
+        >
+          {selected && <Check className="h-4 w-4" />}
+        </span>
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:h-12 sm:w-12">
+          {initials}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-semibold text-foreground" title={member.name}>{member.name}</p>
+          <p className="truncate text-sm text-muted-foreground" dir="ltr">{formattedPhone}</p>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <span
+              className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
+                sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {sent ? t.sent : t.notSent}
+            </span>
+            {tag && (
+              <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                {tag.text}
+              </span>
+            )}
+          </div>
+        </div>
+      </button>
+    );
+  }
 
   return (
     <div className="group relative flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/50 p-3 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 sm:gap-4 sm:p-4">
