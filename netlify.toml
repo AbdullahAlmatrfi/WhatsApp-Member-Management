@@ -6,6 +6,9 @@
 [build.environment]
   # Next 16 needs a modern Node. Netlify's default can lag, so pin it.
   NODE_VERSION = "20"
+  # The Supabase URL + anon key are public by design (RLS is the wall); stop
+  # Netlify's secrets scanner from failing the build on them.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_URL"
 
 # The official Next.js runtime on Netlify (serverless functions + routing).
 # Netlify installs this automatically from npm when it's listed here.

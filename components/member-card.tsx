@@ -46,6 +46,34 @@ export function MemberCard({
 
   const formattedPhone = `+${member.phone.slice(0, 3)} ${member.phone.slice(3, 5)} ${member.phone.slice(5, 8)} ${member.phone.slice(8)}`;
 
+  // Status + added + leaving-soon chips, shared by both card modes so select mode
+  // doesn't hide that a member is about to be auto-deleted.
+  const chips = (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+      <span
+        className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          sent ? "bg-primary/15 text-primary-accent" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {sent ? t.sent : t.notSent}
+      </span>
+      {tag && (
+        <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+          {tag.text}
+        </span>
+      )}
+      {tag?.leavingSoon && (
+        // Neutral chip + clock icon, not red: "leaving soon" is a countdown,
+        // not an error, and DESIGN.md keeps the destructive color for
+        // delete/errors only. The icon carries the urgency instead.
+        <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
+          <Clock className="h-3 w-3" aria-hidden="true" />
+          {t.leavingSoon}
+        </span>
+      )}
+    </div>
+  );
+
   // Select mode: the whole card is one toggle; action buttons are hidden.
   if (selectable) {
     return (
@@ -53,7 +81,7 @@ export function MemberCard({
         onClick={onToggleSelect}
         aria-pressed={selected}
         className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-start transition-all duration-150 sm:gap-4 sm:p-4 ${
-          selected ? "border-primary bg-primary/10" : "border-border/50 bg-secondary/50 hover:border-primary/30"
+          selected ? "border-primary bg-primary/10" : "border-border bg-secondary/50 hover:border-primary/30"
         }`}
       >
         <span
@@ -63,64 +91,30 @@ export function MemberCard({
         >
           {selected && <Check className="h-4 w-4" />}
         </span>
-        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:flex sm:h-12 sm:w-12">
+        <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-accent sm:flex sm:h-12 sm:w-12">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold text-foreground" title={member.name}>{member.name}</p>
-          <p className="truncate text-sm text-muted-foreground" dir="ltr">{formattedPhone}</p>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span
-              className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {sent ? t.sent : t.notSent}
-            </span>
-            {tag && (
-              <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                {tag.text}
-              </span>
-            )}
-          </div>
+          {/* bdi dir=ltr keeps the "+966 …" digit order but follows the row's alignment in RTL */}
+          <p className="truncate text-sm text-muted-foreground"><bdi dir="ltr">{formattedPhone}</bdi></p>
+          {chips}
         </div>
       </button>
     );
   }
 
   return (
-    <div className="group relative flex items-center gap-3 rounded-2xl border border-border/50 bg-secondary/50 p-3 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 sm:gap-4 sm:p-4">
-      <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary sm:flex sm:h-12 sm:w-12">
+    <div className="group relative flex items-center gap-3 rounded-2xl border border-border bg-secondary/50 p-3 transition-all duration-200 hover:border-primary/30 hover:bg-secondary hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 sm:gap-4 sm:p-4">
+      <div className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-bold text-primary-accent sm:flex sm:h-12 sm:w-12">
         {initials}
       </div>
 
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-foreground" title={member.name}>{member.name}</p>
-        {/* dir=ltr so the "+966 …" number keeps its order in the Arabic (RTL) UI */}
-        <p className="truncate text-sm text-muted-foreground" dir="ltr">{formattedPhone}</p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <span
-            className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${
-              sent ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {sent ? t.sent : t.notSent}
-          </span>
-          {tag && (
-            <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              {tag.text}
-            </span>
-          )}
-          {tag?.leavingSoon && (
-            // Neutral chip + clock icon, not red: "leaving soon" is a countdown,
-            // not an error, and DESIGN.md keeps the destructive color for
-            // delete/errors only. The icon carries the urgency instead.
-            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-foreground">
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              {t.leavingSoon}
-            </span>
-          )}
-        </div>
+        {/* bdi dir=ltr keeps the "+966 …" digit order but follows the row's alignment in RTL */}
+        <p className="truncate text-sm text-muted-foreground"><bdi dir="ltr">{formattedPhone}</bdi></p>
+        {chips}
       </div>
 
       <div className="flex shrink-0 items-center gap-2">

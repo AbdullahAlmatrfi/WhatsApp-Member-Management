@@ -211,11 +211,14 @@ export type MemberStats = { total: number; messaged: number; privateCount: numbe
 export async function fetchMemberStats(): Promise<MemberStats> {
   const base = () => supabase.from("members").select("id", { count: "exact", head: true });
   const [tot, msg, priv] = await Promise.all([base(), base().eq("sent", true), base().eq("admin_private", true)]);
+  // Any sub-query failure throws, so a partial failure is never shown as real data.
   if (tot.error) throw tot.error;
+  if (msg.error) throw msg.error;
+  if (priv.error) throw priv.error;
   return {
     total: tot.count ?? 0,
-    messaged: msg.error ? 0 : msg.count ?? 0,
-    privateCount: priv.error ? 0 : priv.count ?? 0,
+    messaged: msg.count ?? 0,
+    privateCount: priv.count ?? 0,
   };
 }
 

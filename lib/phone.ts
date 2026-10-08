@@ -58,20 +58,23 @@ export function sanitizePhoneInput(raw: string): string {
 }
 
 /**
- * Does a stored phone match a search query? The query is normalized the same
- * way (Arabic/Persian/full-width → ASCII, punctuation dropped), then matched
- * against the stored form, the bare national form, and the `0`-trunk form — so
- * searching `0551…`, `+966 55…`, `٥٥١`, or a partial `5512` all find the member.
+ * Does a stored phone match a search query? Only "phone-like" queries are
+ * considered: nothing but digits / spaces / `+` / `-` / `()` (Arabic/Persian/
+ * full-width digits normalized to ASCII) with at least 3 digits. So a name with
+ * a stray digit ("Member 2") never matches phones. A leading country code
+ * (`966` / `00966`) is stripped and matching runs against the national part
+ * (and its `0`-trunk form) only — never the stored "966…" prefix — so `966`,
+ * `96` or `9` alone match nothing, while `0551…`, `+966 55…`, `٥٥١` or a
+ * partial `5512` all find the member.
  */
 export function phoneMatches(storedPhone: string, query: string): boolean {
-  const q = toAsciiDigits(query).replace(/\D/g, "");
+  const ascii = toAsciiDigits(query).trim();
+  if (!/^[\d\s+\-()]+$/.test(ascii)) return false;
+  let q = ascii.replace(/\D/g, "");
+  if (q.length < 3) return false;
+  if (q.startsWith("00966")) q = q.slice(5);
+  else if (q.startsWith("966")) q = q.slice(3);
   if (!q) return false;
   const national = storedPhone.startsWith("966") ? storedPhone.slice(3) : storedPhone;
-  if (storedPhone.includes(q) || national.includes(q) || `0${national}`.includes(q)) {
-    return true;
-  }
-  // A fully-written query (e.g. "00966…" / "+966…") that doesn't substring-match
-  // above still matches if it parses to this member's national number.
-  const parsed = parseSaudiMobile(query);
-  return parsed !== null && parsed === national;
+  return national.includes(q) || `0${national}`.includes(q);
 }

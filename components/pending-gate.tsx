@@ -16,7 +16,7 @@ export function PendingGate() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-sm rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
-        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary-accent">
           <Clock className="h-7 w-7" />
         </div>
         <h1 className="mb-2 text-xl font-semibold text-foreground">{t.pendingTitle}</h1>
@@ -33,7 +33,7 @@ export function PendingGate() {
             onClick={() => signOut()}
             className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 rtl:-scale-x-100" />
             {t.signOut}
           </button>
         </div>

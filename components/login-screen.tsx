@@ -46,8 +46,8 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
           </button>
         )}
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-            <LogIn className="h-7 w-7" />
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary-accent">
+            <LogIn className="h-7 w-7 rtl:-scale-x-100" />
           </div>
           <h1 className="text-2xl font-bold text-foreground">{t.loginTitle}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t.loginSub}</p>
@@ -65,6 +65,8 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
               dir="ltr"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={!!error}
+              aria-describedby={error ? "login-error" : undefined}
               className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
@@ -79,11 +81,17 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
               dir="ltr"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={!!error}
+              aria-describedby={error ? "login-error" : undefined}
               className="h-12 w-full rounded-xl border border-border bg-input px-4 text-foreground placeholder-muted-foreground transition-all duration-200 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
 
-          {error && <p className="text-sm font-medium text-destructive">{error}</p>}
+          {error && (
+            <p id="login-error" role="alert" className="text-sm font-medium text-destructive-accent">
+              {error}
+            </p>
+          )}
 
           <button
             type="submit"
@@ -97,7 +105,7 @@ export function LoginScreen({ onBack }: LoginScreenProps) {
               </>
             ) : (
               <>
-                <LogIn className="h-5 w-5" />
+                <LogIn className="h-5 w-5 rtl:-scale-x-100" />
                 {t.signIn}
               </>
             )}

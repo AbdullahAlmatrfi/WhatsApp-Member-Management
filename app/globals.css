@@ -11,16 +11,24 @@
   --card-foreground: #fafafa;
   --popover: #171717;
   --popover-foreground: #fafafa;
-  --primary: #10b981;
+  /* Brand green. Darkened to #047857 so WHITE TEXT on green buttons meets
+     WCAG AA (white on #047857 = 5.49:1; the old #10b981 was 2.54:1 = fail). */
+  --primary: #047857;
   --primary-foreground: #ffffff;
+  /* Green used AS TEXT/icon on a dark surface needs the opposite: a LIGHT green.
+     #34d399 on near-black ≈ 10:1. Use text-primary-accent for green text. */
+  --primary-accent: #34d399;
   --secondary: #1f1f1f;
   --secondary-foreground: #fafafa;
   --muted: #262626;
   --muted-foreground: #a3a3a3;
   --accent: #10b981;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  /* Darkened so white text on red buttons meets AA (white on #dc2626 = 4.83:1). */
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  /* Red for error TEXT on dark surfaces (buttons keep --destructive). */
+  --destructive-accent: #f87171;
   --border: #2a2a2a;
   --input: #1a1a1a;
   --ring: #10b981;
@@ -34,16 +42,23 @@
   --card-foreground: #0f172a;
   --popover: #ffffff;
   --popover-foreground: #0f172a;
-  --primary: #10b981;
+  /* Brand green, darkened for AA (white on #047857 = 5.49:1). */
+  --primary: #047857;
   --primary-foreground: #ffffff;
+  /* On light surfaces #047857 is ALSO the right green for text (5.49:1 on white,
+     4.70:1 on the pale green chip tint), so the accent matches primary here. */
+  --primary-accent: #047857;
   --secondary: #f1f5f9;
   --secondary-foreground: #0f172a;
   --muted: #e2e8f0;
-  --muted-foreground: #64748b;
+  /* Darkened so small grey chip text ("Not sent", "Added…") meets AA
+     (#475569 on #e2e8f0 = 6.15:1; the old #64748b was 3.86:1 = fail). */
+  --muted-foreground: #475569;
   --accent: #10b981;
   --accent-foreground: #ffffff;
-  --destructive: #ef4444;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
+  --destructive-accent: #dc2626;
   --border: #e2e8f0;
   --input: #ffffff;
   --ring: #10b981;
@@ -60,6 +75,7 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-accent: var(--primary-accent);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -68,6 +84,7 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-accent: var(--destructive-accent);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -112,6 +129,13 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  :focus-visible {
+    outline: 2px solid var(--primary-accent);
+    outline-offset: 2px;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
   }
   body {
     @apply bg-background text-foreground transition-colors duration-300;

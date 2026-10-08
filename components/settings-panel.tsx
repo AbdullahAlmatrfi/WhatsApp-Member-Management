@@ -87,7 +87,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {/* WhatsApp Section */}
             <section>
-              <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-muted-foreground rtl:normal-case rtl:tracking-normal">
                 {t.whatsapp}
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -110,7 +110,7 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
 
             {/* Appearance Section */}
             <section>
-              <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+              <h3 className="mb-4 text-sm font-medium uppercase tracking-wider text-muted-foreground rtl:normal-case rtl:tracking-normal">
                 {t.appearance}
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -133,13 +133,13 @@ export function SettingsPanel({ isOpen, onClose }: SettingsPanelProps) {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Globe 
-                  className="h-4 w-4 text-primary transition-all duration-500 ease-out"
+                  className="h-4 w-4 text-primary-accent transition-all duration-500 ease-out"
                   style={{ 
                     transform: `rotate(${globeRotation}deg) scale(${globeScale})`,
-                    filter: globeScale > 1 ? "drop-shadow(0 0 6px rgba(16, 185, 129, 0.5))" : "none"
+                    filter: globeScale > 1 ? "drop-shadow(0 0 6px color-mix(in srgb, var(--primary) 50%, transparent))" : "none"
                   }}
                 />
-                <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
+                <h3 className="text-sm font-medium uppercase tracking-wider text-muted-foreground rtl:normal-case rtl:tracking-normal">
                   {t.language}
                 </h3>
               </div>
@@ -186,17 +186,17 @@ function OptionCard({ icon, label, description, isActive, onClick, disabled }: O
       aria-pressed={isActive}
       className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-200 ${
         isActive
-          ? "border-primary bg-primary/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]"
+          ? "border-primary bg-primary/10 shadow-[0_0_16px_color-mix(in_srgb,var(--primary)_20%,transparent)]"
           : "border-border hover:border-primary/50 hover:scale-[1.02] hover:-translate-y-[1px]"
       } ${disabled ? "pointer-events-none opacity-60" : ""}`}
     >
       {isActive && (
-        <div className="absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-[0_0_8px_rgba(16,185,129,0.4)]">
+        <div className="absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_40%,transparent)]">
           <Check className="h-3 w-3 text-primary-foreground" />
         </div>
       )}
       <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ${
-        isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+        isActive ? "bg-primary/20 text-primary-accent" : "bg-muted text-muted-foreground"
       }`}>
         {icon}
       </div>
@@ -252,13 +252,13 @@ function LanguageCard({ code, label, isActive, onClick, disabled, labelState }: 
       aria-pressed={isActive}
       className={`relative flex flex-col items-center gap-2 rounded-xl border p-4 text-center transition-all duration-200 ${
         isActive
-          ? "border-primary bg-primary/10 shadow-[0_0_16px_rgba(16,185,129,0.2)]"
+          ? "border-primary bg-primary/10 shadow-[0_0_16px_color-mix(in_srgb,var(--primary)_20%,transparent)]"
           : "border-border hover:border-primary/50 hover:scale-[1.02] hover:-translate-y-[1px]"
       } ${disabled ? "pointer-events-none" : ""}`}
     >
       {isActive && (
         <div 
-          className="absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-[0_0_8px_rgba(16,185,129,0.4)]"
+          className="absolute top-2 end-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_40%,transparent)]"
           style={{
             transition: "all 200ms cubic-bezier(0.22, 1, 0.36, 1)",
           }}
@@ -267,7 +267,7 @@ function LanguageCard({ code, label, isActive, onClick, disabled, labelState }: 
         </div>
       )}
       <div className={`flex h-10 w-10 items-center justify-center rounded-full transition-all duration-200 ${
-        isActive ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
+        isActive ? "bg-primary/20 text-primary-accent" : "bg-muted text-muted-foreground"
       }`}>
         <span className="text-lg font-medium">{code}</span>
       </div>

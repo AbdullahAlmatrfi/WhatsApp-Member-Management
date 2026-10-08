@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { X, Send, Info, Check, MessageSquare, Users, RotateCcw, ChevronLeft } from "lucide-react";
+import { X, Send, Info, Check, MessageSquare, Users, RotateCcw, ChevronLeft, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,8 @@ interface BroadcastPanelProps {
   waPreference: WAPreference;
   sentIds: Set<string>;
   onMarkSent: (id: string) => void;
-  onResetSent: () => void;
+  /** May be async: the confirm button shows a busy state until it settles. */
+  onResetSent: () => void | Promise<void>;
 }
 
 type Filter = "notSent" | "sent";
@@ -32,6 +33,14 @@ function initials(name: string) {
     .slice(0, 2)
     .toUpperCase();
 }
+
+// Arabic compound first names ("عبد الله", "أبو بكر") are two words; keep both.
+const NAME_PREFIX = /^(عبد|أبو|ابو|أم|ام|ابن|بن|آل)$/;
+const firstName = (full: string) => {
+  const parts = full.trim().split(/\s+/);
+  const [a, b] = parts;
+  return b && NAME_PREFIX.test(a) ? `${a} ${b}` : a ?? "";
+};
 
 function prettyPhone(p: string) {
   return `+${p.slice(0, 3)} ${p.slice(3, 5)} ${p.slice(5, 8)} ${p.slice(8)}`;
@@ -55,6 +64,22 @@ export function BroadcastPanel({
   const [qi, setQi] = useState(0);
   const [sentCount, setSentCount] = useState(0);
   const [confirmReset, setConfirmReset] = useState(false);
+  // True when the browser refused to open WhatsApp (pop-up blocked) so the
+  // "Open & send" button isn't silently dead.
+  const [blocked, setBlocked] = useState(false);
+  // In-flight flag for "Reset": the server round-trip can take a moment, so the
+  // button is disabled meanwhile (no double-submit, no silent nothing).
+  const [resetting, setResetting] = useState(false);
+  const runReset = async () => {
+    if (resetting) return;
+    setResetting(true);
+    try {
+      await onResetSent();
+    } finally {
+      setResetting(false);
+      setConfirmReset(false);
+    }
+  };
   // Time-based cooldown so a double-click / Enter-hold on "Open & send" (or Skip)
   // can't rip through several members unseen. Keying off `qi` wouldn't work: qi
   // advances synchronously, so the repeat event already sees the next step.
@@ -81,6 +106,7 @@ export function BroadcastPanel({
       setQi(0);
       setSentCount(0);
       setConfirmReset(false);
+      setBlocked(false);
       lastAdvanceAt.current = 0;
     }
   }, [isOpen]);
@@ -109,11 +135,12 @@ export function BroadcastPanel({
     });
   };
 
-  const personalMsg = (m: Member) => message.replace(/\{name\}/g, () => m.name.split(" ")[0]);
+  const personalMsg = (m: Member) => message.replace(/\{name\}/g, () => firstName(m.name));
 
   const startBroadcast = () => {
     const q = members.filter((m) => selected.has(m.id));
     if (q.length === 0) return;
+    setBlocked(false);
     setQueue(q);
     setQi(0);
     setSentCount(0);
@@ -122,6 +149,7 @@ export function BroadcastPanel({
   };
 
   const openChat = (m: Member) => {
+    setBlocked(false);
     if (!canAdvance()) return; // ignore double-click / key auto-repeat
     const text = encodeURIComponent(personalMsg(m));
     if (waPreference === "web") {
@@ -129,8 +157,10 @@ export function BroadcastPanel({
       // broadcast must not spawn 50 WhatsApp Web tabs.
       const win = window.open(`https://web.whatsapp.com/send?phone=${encodeURIComponent(m.phone)}&text=${text}`, "gymconnect-whatsapp");
       if (!win) {
-        // Popup blocked: don't mark them messaged or advance — let staff retry.
+        // Popup blocked: don't mark them messaged or advance — tell staff why
+        // and let them retry.
         lastAdvanceAt.current = 0;
+        setBlocked(true);
         return;
       }
       // Sever window.opener: a named tab can't use "noopener" (that forces a new
@@ -185,8 +215,8 @@ export function BroadcastPanel({
       >
         {/* Header */}
         <header className="flex items-center gap-3 border-b border-border/50 p-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
-            <Send className="h-5 w-5" />
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary-accent">
+            <Send className="h-5 w-5 rtl:-scale-x-100" />
           </div>
           <div className="flex-1">
             <DialogTitle className="leading-7 text-foreground">{t.broadcast}</DialogTitle>
@@ -207,7 +237,7 @@ export function BroadcastPanel({
             {/* Compose */}
             <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <MessageSquare className="h-4 w-4" />
                 </div>
                 <div>
@@ -230,7 +260,7 @@ export function BroadcastPanel({
 
               {/* Media is a planned future feature — text only for now. */}
               <div className="mt-4 flex gap-2 rounded-xl bg-primary/10 p-3 text-xs leading-relaxed text-muted-foreground">
-                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary-accent" />
                 <span>{t.mediaComingSoon}</span>
               </div>
             </section>
@@ -238,7 +268,7 @@ export function BroadcastPanel({
             {/* Recipients */}
             <section className="rounded-2xl border border-border/50 bg-card p-5 shadow-sm">
               <div className="mb-4 flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
                   <Users className="h-4 w-4" />
                 </div>
                 <div>
@@ -287,9 +317,9 @@ export function BroadcastPanel({
 
               <div className="mb-2 flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">
-                  <span className="font-semibold text-primary">{selectedN}</span> {t.selectedCount}
+                  <span className="font-semibold text-primary-accent">{selectedN}</span> {t.selectedCount}
                 </span>
-                <button onClick={toggleAllShown} className="font-medium text-primary hover:underline">
+                <button onClick={toggleAllShown} className="font-medium text-primary-accent hover:underline">
                   {allShownSelected ? t.clearSelection : t.selectAllShown}
                 </button>
               </div>
@@ -317,15 +347,15 @@ export function BroadcastPanel({
                         >
                           {isSel && <Check className="h-3.5 w-3.5" />}
                         </span>
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-bold text-primary-accent">
                           {initials(m.name)}
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-semibold text-foreground">{m.name}</span>
-                          <span className="block truncate text-xs text-muted-foreground" dir="ltr">{prettyPhone(m.phone)}</span>
+                          <span className="block truncate text-xs text-muted-foreground"><bdi dir="ltr">{prettyPhone(m.phone)}</bdi></span>
                         </span>
                         {isSent && (
-                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                          <span className="flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary-accent">
                             <Check className="h-3 w-3" />
                             {t.sent}
                           </span>
@@ -347,8 +377,8 @@ export function BroadcastPanel({
               disabled={selectedN === 0 || !message.trim()}
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
             >
-              <Send className="h-5 w-5" />
-              {selectedN === 0 ? t.selectToStart : `${t.broadcastTo} ${selectedN}`}
+              <Send className="h-5 w-5 rtl:-scale-x-100" />
+              {selectedN === 0 ? t.selectToStart : t.broadcastToN.replace("{n}", String(selectedN))}
             </button>
           </div>
         </div>
@@ -393,7 +423,7 @@ export function BroadcastPanel({
                   onClick={() => setBroadcasting(false)}
                   className="mb-3 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
                   {t.backToEdit}
                 </button>
                 <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-muted">
@@ -407,12 +437,12 @@ export function BroadcastPanel({
                 </DialogTitle>
 
                 <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-secondary/40 p-3">
-                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                  <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary-accent">
                     {initials(current.name)}
                   </span>
                   <div>
                     <p className="font-semibold text-foreground">{current.name}</p>
-                    <p className="text-xs text-muted-foreground" dir="ltr">{prettyPhone(current.phone)}</p>
+                    <p className="text-xs text-muted-foreground"><bdi dir="ltr">{prettyPhone(current.phone)}</bdi></p>
                   </div>
                 </div>
 
@@ -420,6 +450,12 @@ export function BroadcastPanel({
                   {personalMsg(current)}
                 </DialogDescription>
 
+                {blocked && (
+                  <p role="alert" className="mb-3 text-sm text-destructive-accent">
+                    {t.popupBlocked}
+                  </p>
+                )}
+                <p className="mb-3 text-center text-xs text-muted-foreground">{t.sendReminder}</p>
                 <button
                   ref={sendRef}
                   onClick={() => openChat(current)}
@@ -428,18 +464,18 @@ export function BroadcastPanel({
                   }}
                   className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
                 >
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4 rtl:-scale-x-100" />
                   {t.openAndSend}
                 </button>
               </>
             ) : (
               <>
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary-accent">
                   <Check className="h-7 w-7" />
                 </div>
                 <DialogTitle className="mb-1 leading-7 text-foreground">{t.broadcastDone}</DialogTitle>
                 <DialogDescription className="mb-5">
-                  {sentCount} {t.of} {queue.length} {t.chatsOpened}
+                  {t.broadcastSummary.replace("{sent}", String(sentCount)).replace("{total}", String(queue.length))}
                 </DialogDescription>
                 <button
                   onClick={finishAndClose}
@@ -457,7 +493,7 @@ export function BroadcastPanel({
         <Dialog
           open={confirmReset}
           onOpenChange={(open) => {
-            if (!open) setConfirmReset(false);
+            if (!open && !resetting) setConfirmReset(false);
           }}
         >
           <DialogContent
@@ -467,7 +503,7 @@ export function BroadcastPanel({
             onCloseAutoFocus={returnFocusReset}
             className="z-[60] gap-0 rounded-2xl border-border bg-card p-6 text-center shadow-2xl sm:max-w-sm"
           >
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/15 text-primary-accent">
               <RotateCcw className="h-7 w-7" />
             </div>
             <DialogTitle className="mb-1 leading-7 text-foreground">{t.resetConfirmTitle}</DialogTitle>
@@ -475,18 +511,19 @@ export function BroadcastPanel({
             <div className="flex gap-2">
               <button
                 onClick={() => setConfirmReset(false)}
+                disabled={resetting}
                 autoFocus
-                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted"
+                className="flex-1 rounded-xl border border-border bg-secondary/50 py-3 text-sm font-semibold text-muted-foreground transition-colors hover:bg-muted disabled:opacity-60"
               >
                 {t.cancel}
               </button>
               <button
-                onClick={() => {
-                  onResetSent();
-                  setConfirmReset(false);
-                }}
-                className="flex-1 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
+                onClick={runReset}
+                disabled={resetting}
+                aria-busy={resetting}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110 disabled:opacity-60"
               >
+                {resetting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {t.resetConfirmYes}
               </button>
             </div>
