@@ -33,7 +33,7 @@ export function PendingGate() {
             onClick={() => signOut()}
             className="flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-4 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 rtl:-scale-x-100" />
             {t.signOut}
           </button>
         </div>

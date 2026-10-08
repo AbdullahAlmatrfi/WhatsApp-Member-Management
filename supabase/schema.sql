@@ -1,5 +1,9 @@
 -- =====================================================================
 --  GymConnect v2 — database schema
+--  Run order: schema.sql → schema-v2.sql → schema-v3.sql (v2 & v3 LAST).
+--  Re-running an earlier file requires re-running every later file.
+--  (The members unique(phone) + members_auth_all policy below are SKIPPED once
+--   members.admin_private exists, so a re-run can't undo schema-v3's privacy wall.)
 --  Paste this whole file into Supabase → SQL Editor → New query → Run.
 --  It creates the tables, security rules, and the auto-delete job.
 -- =====================================================================
@@ -33,9 +37,13 @@ create index if not exists members_created_at_idx on public.members (created_at)
 --   where btrim(name) = '' or char_length(name) not between 1 and 100;
 do $do$
 begin
-  if not exists (select 1 from pg_constraint
-                 where conname = 'members_phone_key'
-                   and conrelid = 'public.members'::regclass) then
+  -- Skip once schema-v3 has run: v3 replaced this with unique (admin_private, phone).
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'members'
+                   and column_name = 'admin_private')
+     and not exists (select 1 from pg_constraint
+                     where conname = 'members_phone_key'
+                       and conrelid = 'public.members'::regclass) then
     alter table public.members add constraint members_phone_key unique (phone);
   end if;
 
@@ -154,13 +162,25 @@ alter table public.settings enable row level security;
 -- members: only accounts with an 'admin' or 'staff' profile can read + write.
 -- (was using (true): any logged-in user, incl. a 'pending' self-signup, got full
 --  access, which would have made the 'pending' role meaningless.)
-drop policy if exists members_auth_all on public.members;
-create policy members_auth_all on public.members
-  for all to authenticated
-  using      (exists (select 1 from public.profiles p
-                      where p.id = (select auth.uid()) and p.role in ('admin','staff')))
-  with check (exists (select 1 from public.profiles p
-                      where p.id = (select auth.uid()) and p.role in ('admin','staff')));
+-- Guarded: once members.admin_private exists (schema-v3 ran), do NOT recreate this
+-- broad policy — it would let staff see admin-private members again. On a fresh
+-- run the column doesn't exist yet, so the block runs normally.
+do $do$
+begin
+  if not exists (select 1 from information_schema.columns
+                 where table_schema = 'public' and table_name = 'members'
+                   and column_name = 'admin_private') then
+    execute 'drop policy if exists members_auth_all on public.members';
+    execute $sql$
+      create policy members_auth_all on public.members
+        for all to authenticated
+        using      (exists (select 1 from public.profiles p
+                            where p.id = (select auth.uid()) and p.role in ('admin','staff')))
+        with check (exists (select 1 from public.profiles p
+                            where p.id = (select auth.uid()) and p.role in ('admin','staff')))
+    $sql$;
+  end if;
+end $do$;
 
 -- profiles: a user can read their own profile row
 drop policy if exists profiles_self_read on public.profiles;

@@ -16,7 +16,7 @@ if (!isSupabaseConfigured) {
   // Helpful message during setup if the env vars are missing.
   console.warn(
     "[GymConnect] Supabase env vars missing. Set NEXT_PUBLIC_SUPABASE_URL and " +
-      "NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local (and in Vercel)."
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local (and in Netlify)."
   );
 }
 

@@ -56,7 +56,7 @@ export default function Home() {
 
   // Admins land on the control panel by default; this is true only when they've
   // chosen the staff view this session.
-  const [staffView] = useState<boolean>(() => {
+  const [staffView, setStaffView] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try {
       return sessionStorage.getItem(STAFF_VIEW_KEY) === "1";
@@ -104,6 +104,17 @@ export default function Home() {
   useEffect(() => {
     panelOpenRef.current = showBroadcast;
   }, [showBroadcast]);
+
+  // Signed out → forget the staff-view choice (auth.tsx clears the storage flag),
+  // so an admin signing back in lands on /admin, not the staff view.
+  useEffect(() => {
+    if (!authLoading && !session) {
+      setStaffView(false);
+      try {
+        sessionStorage.removeItem(STAFF_VIEW_KEY);
+      } catch {}
+    }
+  }, [authLoading, session]);
 
   // Make the control panel the admin's landing page. Only redirect once the role
   // is actually known as admin, and not when they've chosen the staff view.
@@ -155,6 +166,9 @@ export default function Home() {
     clearTimeout(toastTimerRef.current);
     toastTimerRef.current = setTimeout(() => setShowToast(false), 3000);
   };
+
+  const bulkDeletedMsg = (n: number) =>
+    n === 1 ? t.bulkDeletedToastOne : t.bulkDeletedToast.replace("{n}", String(n));
 
   // Load members when the signed-in user changes (keyed on the user id, not the
   // session object, so token refresh / tab focus doesn't refetch). Also wipes
@@ -429,13 +443,13 @@ export default function Home() {
         // (revoked). Probe the role; only confirm if still approved.
         const r = await refreshRole();
         if (userIdRef.current !== uid) return;
-        if (isApprovedRole(r)) toast(t.bulkDeletedToast.replace("{n}", String(removedMembers.length)));
+        if (isApprovedRole(r)) toast(bulkDeletedMsg(removedMembers.length));
       } else {
         // If fewer rows came back than we optimistically removed, some still
         // exist in the DB — reconcile the list now instead of waiting for the
         // background refresh, so nothing shows as deleted that isn't.
         if (removed !== removedMembers.length) reconcile = true;
-        toast(t.bulkDeletedToast.replace("{n}", String(removed)));
+        toast(bulkDeletedMsg(removed));
       }
     } catch {
       if (userIdRef.current !== uid) return;

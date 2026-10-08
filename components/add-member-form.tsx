@@ -97,7 +97,7 @@ export function AddMemberForm({ onAddMember }: AddMemberFormProps) {
         </div>
 
         {phoneError ? (
-          <p id="phone-error" role="alert" className="text-sm text-destructive">
+          <p id="phone-error" role="alert" className="text-sm text-destructive-accent">
             {t.phoneInvalid}
           </p>
         ) : (

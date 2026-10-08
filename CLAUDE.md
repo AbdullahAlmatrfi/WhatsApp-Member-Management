@@ -16,7 +16,7 @@ Supabase (database + auth + RLS, live). Deploys to **Netlify**.
 - `components/` — `add-member-form`, `members-list`, `member-card`, `broadcast-panel`,
   `delete-dialog`, `settings-panel`, `toast` (+ full shadcn `ui/`)
 - `lib/translations.tsx` — EN/AR strings + theme/lang/WA context (AppProvider)
-- `supabase/schema.sql` — planned database (not wired yet)
+- `supabase/schema.sql` — the live database schema (run order: schema.sql → schema-v2.sql → schema-v3.sql)
 
 ## Current state
 ✅ Add/search/delete members · bulk delete · text broadcast with `{name}` · Not messaged/Messaged status ·

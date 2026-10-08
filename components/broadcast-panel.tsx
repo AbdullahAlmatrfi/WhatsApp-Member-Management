@@ -451,7 +451,7 @@ export function BroadcastPanel({
                 </DialogDescription>
 
                 {blocked && (
-                  <p role="alert" className="mb-3 text-sm text-destructive">
+                  <p role="alert" className="mb-3 text-sm text-destructive-accent">
                     {t.popupBlocked}
                   </p>
                 )}

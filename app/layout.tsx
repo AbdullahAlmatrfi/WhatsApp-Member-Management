@@ -45,7 +45,8 @@ export default function RootLayout({
             {children}
           </AuthProvider>
         </AppProvider>
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {/* Vercel-only: on Netlify /_vercel/insights/script.js 404s. */}
+        {process.env.VERCEL ? <Analytics /> : null}
       </body>
     </html>
   )

@@ -232,7 +232,7 @@ export function MembersList({
           </div>
           <AlertDialogTitle className="mb-2 text-foreground">{t.bulkDeleteTitle}</AlertDialogTitle>
           <AlertDialogDescription className="mb-6">
-            {t.bulkDeleteBody.replace("{n}", String(selectedN))}
+            {selectedN === 1 ? t.bulkDeleteBodyOne : t.bulkDeleteBody.replace("{n}", String(selectedN))}
           </AlertDialogDescription>
           <div className="flex gap-3">
             <AlertDialogPrimitive.Cancel className="flex-1 rounded-xl bg-secondary px-4 py-3 font-medium text-secondary-foreground transition-all duration-200 hover:bg-muted">

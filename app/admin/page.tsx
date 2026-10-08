@@ -212,6 +212,11 @@ export default function AdminPage() {
     if (role === "admin") load();
   }, [role, load]);
 
+  // Signed out (e.g. admin hit Sign out here) → back to the landing page.
+  useEffect(() => {
+    if (!authLoading && !session) router.replace("/");
+  }, [authLoading, session, router]);
+
   // ---- create a new staff login ----
   // TODO: the one-staff-per-gym cap is UI-only (single-gym setup). The form is
   // hidden below and this guard blocks a stray submit, but app/api/admin-users
@@ -359,8 +364,16 @@ export default function AdminPage() {
       </main>
     );
   }
-  // Not an admin → bounce to the normal app (route-level guard; RLS is the real wall).
-  if (!session || !isApprovedRole(role) || role !== "admin") {
+  // Signed out → the effect above is redirecting to "/"; hold a spinner meanwhile.
+  if (!session) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
+      </main>
+    );
+  }
+  // Signed-in non-admin → bounce to the normal app (route-level guard; RLS is the real wall).
+  if (!isApprovedRole(role) || role !== "admin") {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
         <p className="text-sm text-muted-foreground">{t.adminOnly}</p>
@@ -461,7 +474,7 @@ export default function AdminPage() {
               aria-label={t.signOut}
               title={t.signOut}
             >
-              <LogOut className="h-5 w-5" />
+              <LogOut className="h-5 w-5 rtl:-scale-x-100" />
             </button>
           </div>
         </header>

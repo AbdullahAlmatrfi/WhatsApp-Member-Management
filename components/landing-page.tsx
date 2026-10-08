@@ -22,9 +22,9 @@ export function LandingPage({ onLogin }: LandingPageProps) {
   const { t, lang, setLang, theme, setTheme } = useApp();
 
   const steps = [
-    { icon: UserPlus, title: t.landingStep1Title, body: t.landingStep1Body },
-    { icon: Send, title: t.landingStep2Title, body: t.landingStep2Body },
-    { icon: Clock, title: t.landingStep3Title, body: t.landingStep3Body },
+    { icon: UserPlus, flip: false, title: t.landingStep1Title, body: t.landingStep1Body },
+    { icon: Send, flip: true, title: t.landingStep2Title, body: t.landingStep2Body },
+    { icon: Clock, flip: false, title: t.landingStep3Title, body: t.landingStep3Body },
   ];
 
   return (
@@ -39,6 +39,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={() => setLang(lang === "ar" ? "en" : "ar")}
+              aria-label={t.language}
               className="flex h-9 items-center rounded-lg px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
               <span lang={lang === "ar" ? "en" : "ar"}>{lang === "ar" ? "EN" : "ع"}</span>
@@ -55,7 +56,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
               aria-label={t.loginTitle}
               className="ms-1 flex h-9 items-center gap-2 whitespace-nowrap rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground transition-all hover:brightness-110"
             >
-              <LogIn className="h-4 w-4" />
+              <LogIn className="h-4 w-4 rtl:-scale-x-100" />
               <span className="hidden sm:inline">{t.loginTitle}</span>
             </button>
           </div>
@@ -80,7 +81,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
                 onClick={onLogin}
                 className="flex h-12 items-center gap-2 rounded-xl bg-primary px-6 font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:brightness-110 active:translate-y-0"
               >
-                <LogIn className="h-5 w-5" />
+                <LogIn className="h-5 w-5 rtl:-scale-x-100" />
                 {t.loginTitle}
               </button>
             </div>
@@ -91,7 +92,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             <div className="relative w-full max-w-sm rounded-3xl border border-border/70 bg-card p-5 shadow-2xl">
               <div className="mb-4 flex items-center gap-2.5">
                 <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary-accent">
-                  <Send className="h-4 w-4" />
+                  <Send className="h-4 w-4 rtl:-scale-x-100" />
                 </span>
                 <span className="font-semibold">{t.broadcast}</span>
               </div>
@@ -141,7 +142,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
             {steps.map((s, i) => (
               <div key={s.title} className="flex gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary-accent">
-                  <s.icon className="h-5 w-5" />
+                  <s.icon className={s.flip ? "h-5 w-5 rtl:-scale-x-100" : "h-5 w-5"} />
                 </span>
                 <div>
                   <h3 className="flex items-baseline gap-2 font-semibold">
@@ -155,7 +156,7 @@ export function LandingPage({ onLogin }: LandingPageProps) {
           </div>
         </div>
 
-        <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground/70">
+        <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
           {t.title} — {t.subtitle}
         </footer>
       </div>

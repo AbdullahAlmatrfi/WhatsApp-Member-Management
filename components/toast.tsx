@@ -31,12 +31,12 @@ export function Toast({ show, message, variant = "success" }: ToastProps) {
       {/* Visual toast only; announced via the regions above, so hidden from AT. */}
       <div
         aria-hidden="true"
-        className={`fixed end-4 top-4 z-[100] flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg transition-all duration-300 ${
+        className={`fixed end-4 top-4 z-[100] pointer-events-none flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg transition-all duration-300 ${
           isError ? "bg-destructive text-destructive-foreground" : "bg-primary text-primary-foreground"
         } ${
           show
             ? "translate-x-0 opacity-100"
-            : "opacity-0 pointer-events-none ltr:translate-x-full rtl:-translate-x-full"
+            : "opacity-0 ltr:translate-x-full rtl:-translate-x-full"
         }`}
       >
         <div
