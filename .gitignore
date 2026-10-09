@@ -19,3 +19,6 @@ docs/*.pdf
 
 # TypeScript incremental build cache
 *.tsbuildinfo
+
+# Claude agent configs (local tooling, not part of the app)
+.claude/
