@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Settings2, Send, LogOut, Loader2, ShieldCheck } from "lucide-react";
+import { Settings2, Send, LogOut, Loader2, ShieldCheck, X } from "lucide-react";
 import { AddMemberForm } from "@/components/add-member-form";
 import { MembersList } from "@/components/members-list";
 import { StatsRow } from "@/components/stats-row";
@@ -34,6 +34,20 @@ import { toStoredPhone } from "@/lib/phone";
 import { isSupabaseConfigured } from "@/lib/supabase/client";
 
 const DEFAULT_RETENTION_HOURS = 72;
+
+/** Fake members shown in demo mode — Arabic + English names, Saudi phones. */
+function makeDemoMembers(): Member[] {
+  const now = Date.now();
+  const h = 3_600_000;
+  return [
+    { id: "demo-1", name: "خالد", phone: "966512345678", sent: false, createdAt: new Date(now - 2 * h).toISOString() },
+    { id: "demo-2", name: "Sara", phone: "966551234567", sent: true, createdAt: new Date(now - 5 * h).toISOString() },
+    { id: "demo-3", name: "محمد", phone: "966599876543", sent: false, createdAt: new Date(now - 24 * h).toISOString() },
+    { id: "demo-4", name: "Nora", phone: "966533456789", sent: true, createdAt: new Date(now - 48 * h).toISOString() },
+    { id: "demo-5", name: "عبدالله", phone: "966577654321", sent: false, createdAt: new Date(now - 1 * h).toISOString() },
+  ];
+}
+let demoIdCounter = 100;
 
 export interface Member {
   id: string;
@@ -78,6 +92,9 @@ export default function Home() {
 
   // Logged-out visitors see the landing page first; "Staff Login" opens the form.
   const [showLogin, setShowLogin] = useState(false);
+
+  // Demo mode: no Supabase, fake data, local-only CRUD.
+  const [demoMode, setDemoMode] = useState(false);
 
   // Identity: the gym's name (header title) and this user's friendly name (greeting).
   const [gymName, setGymName] = useState<string | null>(null);
@@ -288,6 +305,11 @@ export default function Home() {
   const sentIds = new Set(members.filter((m) => m.sent).map((m) => m.id));
 
   const markSent = async (id: string) => {
+    // Demo mode: purely local.
+    if (demoMode) {
+      setMembers((prev) => prev.map((m) => (m.id === id ? { ...m, sent: true } : m)));
+      return;
+    }
     const uid = userIdRef.current;
     const previous = members.find((m) => m.id === id);
     if (!previous) return;
@@ -317,6 +339,11 @@ export default function Home() {
   };
 
   const resetSent = async () => {
+    // Demo mode: purely local.
+    if (demoMode) {
+      setMembers((prev) => prev.map((m) => ({ ...m, sent: false })));
+      return;
+    }
     const uid = userIdRef.current;
     const hadSent = sentIds.size;
     // Non-optimistic: wait for the server, THEN clear. A 0-row result while
@@ -354,13 +381,27 @@ export default function Home() {
 
   // Resolves true only when the row was really inserted.
   const handleAddMember = async (name: string, phone: string): Promise<boolean> => {
-    const uid = userIdRef.current;
     // Form guarantees `phone` is exactly 9 digits starting with 5 (FR-12).
     const fullPhone = toStoredPhone(phone);
     if (members.some((m) => m.phone === fullPhone)) {
       toast(t.numberExists, "error");
       return false;
     }
+    // Demo mode: purely local, no Supabase.
+    if (demoMode) {
+      demoIdCounter++;
+      const created: Member = {
+        id: `demo-${demoIdCounter}`,
+        name,
+        phone: fullPhone,
+        sent: false,
+        createdAt: new Date().toISOString(),
+      };
+      setMembers((prev) => [created, ...prev]);
+      toast(t.memberAdded);
+      return true;
+    }
+    const uid = userIdRef.current;
     writesInFlight.current++;
     writeEpoch.current++;
     try {
@@ -391,10 +432,16 @@ export default function Home() {
 
   const handleConfirmDelete = async () => {
     if (!deleteTarget) return;
-    const uid = userIdRef.current;
     const target = deleteTarget;
-    const originalIndex = members.findIndex((m) => m.id === target.id);
     setDeleteTarget(null);
+    // Demo mode: purely local delete.
+    if (demoMode) {
+      setMembers((prev) => prev.filter((m) => m.id !== target.id));
+      toast(t.memberDeleted);
+      return;
+    }
+    const uid = userIdRef.current;
+    const originalIndex = members.findIndex((m) => m.id === target.id);
     setMembers((prev) => prev.filter((m) => m.id !== target.id));
     writesInFlight.current++;
     writeEpoch.current++;
@@ -427,6 +474,13 @@ export default function Home() {
 
   const handleBulkDelete = async (ids: string[]) => {
     if (ids.length === 0) return;
+    // Demo mode: purely local.
+    if (demoMode) {
+      const idSet = new Set(ids);
+      setMembers((prev) => prev.filter((m) => !idSet.has(m.id)));
+      toast(bulkDeletedMsg(ids.length));
+      return;
+    }
     const uid = userIdRef.current;
     const idSet = new Set(ids);
     const removedMembers = members.filter((m) => idSet.has(m.id));
@@ -508,15 +562,22 @@ export default function Home() {
       </main>
     );
   }
-  if (!session) {
+  if (!session && !demoMode) {
     return showLogin ? (
       <LoginScreen onBack={() => setShowLogin(false)} />
     ) : (
-      <LandingPage onLogin={() => setShowLogin(true)} />
+      <LandingPage
+        onLogin={() => setShowLogin(true)}
+        onDemo={() => {
+          setMembers(makeDemoMembers());
+          setLoadingMembers(false);
+          setDemoMode(true);
+        }}
+      />
     );
   }
   // Role not yet known for this session → hold a spinner, never flash the gate.
-  if (!roleResolved && !roleError) {
+  if (!demoMode && !roleResolved && !roleError) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
@@ -526,7 +587,7 @@ export default function Home() {
   // Couldn't verify the role (network/timeout) and we don't already know the
   // user is approved — a blip, NOT a rejection. Offer a retry (not the gate, not
   // a kick-out of an approved session mid-work).
-  if (roleError && !isApprovedRole(role)) {
+  if (!demoMode && roleError && !isApprovedRole(role)) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background p-6">
         <div className="flex max-w-sm flex-col items-center gap-4 rounded-2xl border border-border/50 bg-card p-8 text-center shadow-lg">
@@ -550,11 +611,11 @@ export default function Home() {
     );
   }
   // Signed in but not approved (pending / no profile / revoked) → friendly gate.
-  if (!isApprovedRole(role)) return <PendingGate />;
+  if (!demoMode && !isApprovedRole(role)) return <PendingGate />;
 
   // Admin who hasn't chosen the staff view → hold a spinner while the effect
   // above redirects to the control panel (their landing page).
-  if (role === "admin" && !staffView) {
+  if (!demoMode && role === "admin" && !staffView) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary-accent" />
@@ -567,8 +628,30 @@ export default function Home() {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t.greetMorning : hour < 18 ? t.greetAfternoon : t.greetEvening;
 
+  const exitDemo = () => {
+    setDemoMode(false);
+    setMembers([]);
+    setLoadingMembers(true);
+    setShowBroadcast(false);
+    setShowSettings(false);
+    setDeleteTarget(null);
+  };
+
   return (
     <main className="min-h-screen bg-background p-4 transition-colors duration-300 md:p-8">
+      {/* Demo banner */}
+      {demoMode && (
+        <div className="mx-auto mb-4 flex max-w-2xl items-center justify-between gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary-accent lg:max-w-6xl">
+          <span>{t.demoBanner}</span>
+          <button
+            onClick={exitDemo}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-secondary"
+          >
+            <X className="h-3.5 w-3.5" />
+            {t.demoExit}
+          </button>
+        </div>
+      )}
       <div className="mx-auto max-w-2xl lg:max-w-6xl">
         <header className="relative flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-3">
@@ -577,23 +660,23 @@ export default function Home() {
               <h1 className="truncate text-xl font-bold text-foreground sm:text-2xl md:text-3xl">
                 {gymName || t.title}
               </h1>
-              <p className="truncate text-sm text-muted-foreground" dir="auto">
-                {displayName
-                  ? `${greeting}${lang === "ar" ? "،" : ","} ${displayName}`
-                  : greeting}
-                <span className="text-muted-foreground/70">
-                  {" · "}
-                  {role === "admin" ? t.roleAdmin : t.roleStaffCue}
-                </span>
-              </p>
+              {!demoMode && (
+                <p className="truncate text-sm text-muted-foreground" dir="auto">
+                  {displayName
+                    ? `${greeting}${lang === "ar" ? "،" : ","} ${displayName}`
+                    : greeting}
+                  <span className="text-muted-foreground/70">
+                    {" · "}
+                    {role === "admin" ? t.roleAdmin : t.roleStaffCue}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button
               onClick={() => {
-                // Pull a fresh list just before broadcasting so you don't
-                // message a stale set (runs before the panel opens).
-                refreshMembers();
+                if (!demoMode) refreshMembers();
                 setShowBroadcast(true);
               }}
               className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-4 font-semibold text-primary-foreground transition-all duration-200 hover:brightness-110 hover:-translate-y-0.5 active:translate-y-0"
@@ -602,7 +685,7 @@ export default function Home() {
               <Send className="h-5 w-5 rtl:-scale-x-100" />
               <span className="hidden sm:inline">{t.broadcast}</span>
             </button>
-            {role === "admin" && (
+            {!demoMode && role === "admin" && (
               <Link
                 href="/admin"
                 className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
@@ -619,14 +702,26 @@ export default function Home() {
             >
               <Settings2 className="h-6 w-6" />
             </button>
-            <button
-              onClick={() => signOut()}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
-              aria-label={t.signOut}
-              title={t.signOut}
-            >
-              <LogOut className="h-5 w-5 rtl:-scale-x-100" />
-            </button>
+            {demoMode ? (
+              <button
+                onClick={exitDemo}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border px-3 text-sm font-medium text-muted-foreground transition-colors duration-200 hover:text-foreground"
+                aria-label={t.demoExit}
+                title={t.demoExit}
+              >
+                <LogOut className="h-4 w-4 rtl:-scale-x-100" />
+                <span className="hidden sm:inline">{t.demoExit}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => signOut()}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:text-primary-accent"
+                aria-label={t.signOut}
+                title={t.signOut}
+              >
+                <LogOut className="h-5 w-5 rtl:-scale-x-100" />
+              </button>
+            )}
           </div>
         </header>
 

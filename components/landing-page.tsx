@@ -1,12 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { Check, LogIn, Moon, Sun, Send, UserPlus, Sparkles, Clock } from "lucide-react";
+import { Check, LogIn, Moon, Sun, Send, UserPlus, Sparkles, Clock, Play } from "lucide-react";
 import { useApp } from "@/lib/translations";
 
 interface LandingPageProps {
   /** Switch to the staff login screen. */
   onLogin: () => void;
+  /** Enter the interactive demo (no login required). */
+  onDemo: () => void;
 }
 
 /** A WhatsApp mark, reused from the member card. */
@@ -18,7 +20,7 @@ function WhatsAppGlyph({ className }: { className?: string }) {
   );
 }
 
-export function LandingPage({ onLogin }: LandingPageProps) {
+export function LandingPage({ onLogin, onDemo }: LandingPageProps) {
   const { t, lang, setLang, theme, setTheme } = useApp();
 
   const steps = [
@@ -83,6 +85,13 @@ export function LandingPage({ onLogin }: LandingPageProps) {
               >
                 <LogIn className="h-5 w-5 rtl:-scale-x-100" />
                 {t.loginTitle}
+              </button>
+              <button
+                onClick={onDemo}
+                className="flex h-12 items-center gap-2 rounded-xl border border-border bg-card px-6 font-semibold text-foreground transition-all hover:-translate-y-0.5 hover:bg-secondary active:translate-y-0"
+              >
+                <Play className="h-4 w-4 text-primary-accent" />
+                {t.tryDemo}
               </button>
             </div>
           </div>
